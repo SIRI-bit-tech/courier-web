@@ -1,0 +1,232 @@
+/* Google Fonts Imports - Load before other styles */
+@import url('https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&family=Work+Sans:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
+
+@import 'leaflet/dist/leaflet.css';
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+/* @import "tailwindcss-animate"; */
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --background: 0 0% 100%; /* white */
+  --foreground: 0 0% 0%;   /* black */
+
+  --primary: 45 85% 55%;         /* Muted MSC Yellow (#e6b800) - softer */
+  --primary-foreground: 0 0% 0%;  /* black on yellow */
+
+  --secondary: 0 0% 0%;           /* black */
+  --secondary-foreground: 0 0% 100%; /* white on black */
+
+  --muted: 0 0% 96%;              /* light gray */
+  --muted-foreground: 0 0% 45%;   /* dark gray text */
+
+  --accent: 0 0% 90%;             /* gray */
+  --accent-foreground: 0 0% 0%;   /* black */
+
+  --destructive: 0 100% 40%;      /* red */
+  --destructive-foreground: 0 0% 100%; /* white */
+
+  --border: 0 0% 90%;
+  --input: 0 0% 90%;
+  --ring: 45 85% 55%;            /* muted yellow outline */
+
+  /* Charts (optional, adapted to MSC style) */
+  --chart-1: #e6b800;  /* muted yellow */
+  --chart-2: #000000;
+  --chart-3: #666666;
+  --chart-4: #e6e6e6;
+  --chart-5: #cc0000;
+
+  --radius: 0.625rem;
+
+  /* Sidebar */
+  --sidebar: #000000;
+  --sidebar-foreground: #ffffff;
+  --sidebar-primary: #e6b800;  /* muted yellow */
+  --sidebar-primary-foreground: #000000;
+  --sidebar-accent: #f5f5f5;
+  --sidebar-accent-foreground: #000000;
+  --sidebar-border: #e6e6e6;
+  --sidebar-ring: #e6b800;  /* muted yellow */
+
+  /* Font families - with Google Fonts */
+  --font-sans: "Open Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-heading: "Work Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+.dark {
+  --background: #000000;
+  --foreground: #ffffff;
+
+  --card: #111111;
+  --card-foreground: #ffffff;
+
+  --popover: #111111;
+  --popover-foreground: #ffffff;
+
+  --primary: #e6b800;  /* muted yellow for dark mode */
+  --primary-foreground: #000000;
+
+  --secondary: #ffffff;
+  --secondary-foreground: #000000;
+
+  --muted: #222222;
+  --muted-foreground: #aaaaaa;
+
+  --accent: #333333;
+  --accent-foreground: #ffffff;
+
+  --destructive: #ff3333;
+  --destructive-foreground: #ffffff;
+
+  --border: #333333;
+  --input: #333333;
+  --ring: #e6b800;  /* muted yellow */
+
+  --chart-1: #e6b800;  /* muted yellow */
+  --chart-2: #ffffff;
+  --chart-3: #888888;
+  --chart-4: #444444;
+  --chart-5: #ff3333;
+
+  --sidebar: #111111;
+  --sidebar-foreground: #ffffff;
+  --sidebar-primary: #e6b800;  /* muted yellow */
+  --sidebar-primary-foreground: #000000;
+  --sidebar-accent: #222222;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #333333;
+  --sidebar-ring: #e6b800;  /* muted yellow */
+}
+
+
+@theme inline {
+  --font-sans: "Open Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-heading: "Work Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+  /* Font smoothing and rendering improvements */
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  /* Body font with smoothing */
+  body {
+    @apply bg-background text-foreground font-sans;
+    font-feature-settings: "kern" 1, "liga" 1, "calt" 1, "pnum" 1, "tnum" 0, "onum" 1, "lnum" 0, "dlig" 0;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    font-synthesis: none;
+  }
+
+  /* Heading fonts with improved rendering */
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-heading);
+    font-feature-settings: "kern" 1, "liga" 1, "calt" 1, "pnum" 1, "tnum" 0, "onum" 1, "lnum" 0, "dlig" 0;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    font-synthesis: none;
+  }
+
+  /* Input and form elements */
+  input,
+  textarea,
+  select,
+  button {
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Force font loading and rendering */
+  .font-sans {
+    font-family: var(--font-sans);
+  }
+
+  .font-heading {
+    font-family: var(--font-heading);
+  }
+}
+
+/* Font loading optimization */
+@font-face {
+  font-family: 'Open Sans';
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  src: url('https://fonts.gstatic.com/s/opensans/v40/memSYaGs126MiZpBA-UvWbX2vVnXBbObj2OVZyOOSr4dVJWUgsiJ0C4n.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Work Sans';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('https://fonts.gstatic.com/s/worksans/v19/QGY_z_wNahGAdqQ43RhVcIgYT2Xz5u32K0nWNigDp6_cOyMmNQ.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* Preload critical fonts */
+body {
+  font-family: var(--font-sans);
+}
+
+/* Font loading status indicator (for debugging) */
+.font-loading {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+/* Ensure fonts load properly */
+@supports (font-display: swap) {
+  * {
+    font-display: swap;
+  }
+}
