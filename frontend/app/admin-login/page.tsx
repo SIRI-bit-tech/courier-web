@@ -6,10 +6,10 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
 import { Shield, Eye, EyeOff } from "lucide-react"
-import { Button } from "@/frontend/components/ui/button"
-import { Input } from "@/frontend/components/ui/input"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/frontend/components/ui/card"
-import { Alert, AlertDescription } from "@/frontend/components/ui/alert"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 export default function AdminLoginPage() {
   const [formData, setFormData] = useState({

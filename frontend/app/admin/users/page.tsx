@@ -1,11 +1,11 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/frontend/components/ui/card"
-import { Button } from "@/frontend/components/ui/button"
-import { Badge } from "@/frontend/components/ui/badge"
-import { Input } from "@/frontend/components/ui/input"
-import { adminApi } from "@/lib/admin-api"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
+import { adminAPI } from "@/lib/admin-api"
 
 interface User {
   id: number
@@ -28,7 +28,7 @@ export default function AdminUsersPage() {
 
   const fetchUsers = async () => {
     try {
-      const response = await adminApi.get("/users/")
+      const response = await adminAPI.get("/users/")
       setUsers(response.data.results || response.data)
     } catch (error) {
       console.error("Failed to fetch users:", error)
@@ -39,7 +39,7 @@ export default function AdminUsersPage() {
 
   const toggleUserStatus = async (userId: number, isActive: boolean) => {
     try {
-      await adminApi.patch(`/users/${userId}/`, { is_active: !isActive })
+      await adminAPI.patch(`/users/${userId}/`, { is_active: !isActive })
       fetchUsers()
     } catch (error) {
       console.error("Failed to update user status:", error)

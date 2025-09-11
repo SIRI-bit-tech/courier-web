@@ -4,7 +4,7 @@ import type React from "react"
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { adminApi } from "@/lib/admin-api"
+import { adminAPI } from "@/lib/admin-api"
 
 export default function AdminLayout({
   children,
@@ -17,18 +17,23 @@ export default function AdminLayout({
 
   useEffect(() => {
     const checkAuth = async () => {
-      const token = localStorage.getItem("adminToken")
+      const token = localStorage.getItem("admin_access_token")
       if (!token) {
-        router.push("/admin/login")
+        // Use window.location for immediate redirect
+        window.location.href = "/admin-login"
         return
       }
 
       try {
-        await adminApi.get("/auth/verify/")
+        await adminAPI.getAdminStats()
         setIsAuthenticated(true)
       } catch (error) {
-        localStorage.removeItem("adminToken")
-        router.push("/admin/login")
+        // Clean up tokens and redirect immediately
+        localStorage.removeItem("admin_access_token")
+        localStorage.removeItem("admin_refresh_token")
+        localStorage.removeItem("admin_user")
+        window.location.href = "/admin-login"
+        return
       } finally {
         setIsLoading(false)
       }
@@ -38,11 +43,24 @@ export default function AdminLayout({
   }, [router])
 
   if (isLoading) {
-    return <div className="flex items-center justify-center min-h-screen">Loading...</div>
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading admin dashboard...</p>
+        </div>
+      </div>
+    )
   }
 
   if (!isAuthenticated) {
-    return null
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-gray-600">Redirecting to login...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -56,8 +74,10 @@ export default function AdminLayout({
             <div className="flex items-center space-x-4">
               <button
                 onClick={() => {
-                  localStorage.removeItem("adminToken")
-                  router.push("/admin/login")
+                  localStorage.removeItem("admin_access_token")
+                  localStorage.removeItem("admin_refresh_token")
+                  localStorage.removeItem("admin_user")
+                  window.location.href = "/admin-login"
                 }}
                 className="text-gray-500 hover:text-gray-700"
               >
