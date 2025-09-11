@@ -6,8 +6,7 @@ import {
   Package, Users, Truck, DollarSign, TrendingUp, Activity, 
   Search, Plus, Edit, Trash2, Eye, MapPin, Settings,
   CheckCircle, XCircle, Clock, User, Mail, Phone, Car,
-  Home, Map, Calendar, Filter, Download, Upload, FileText,
-  History, Bell, Zap, RefreshCw
+  Home, Map, Calendar, Filter, Download, Upload
 } from "lucide-react"
 
 // Individual UI component imports
@@ -82,28 +81,12 @@ interface Package {
     email: string
   }
   qr_code: string
-  sender_email: string
-  sender_phone: string
-  sender_address: string
-  sender_city: string
-  sender_state: string
-  sender_zip: string
-  recipient_email: string
-  recipient_phone: string
-  recipient_address: string
-  recipient_city: string
-  recipient_state: string
-  recipient_zip: string
-  length: number
-  width: number
-  height: number
-  declared_value: number
 }
 
 interface Route {
   id: number
   driver: {
-    id: number
+    id: number,
     username: string
     first_name: string
     last_name: string
@@ -164,17 +147,6 @@ interface Notification {
   error_message: string
 }
 
-interface ChangeHistory {
-  id: number
-  object_id: number
-  object_type: string
-  field_name: string
-  old_value: string
-  new_value: string
-  changed_by: User
-  changed_at: string
-}
-
 interface Stats {
   total_packages: number
   total_users: number
@@ -202,16 +174,11 @@ export function AdminDashboard() {
   const [serviceAreas, setServiceAreas] = useState<ServiceArea[]>([])
   const [trackingEvents, setTrackingEvents] = useState<TrackingEvent[]>([])
   const [notifications, setNotifications] = useState<Notification[]>([])
-  const [changeHistory, setChangeHistory] = useState<ChangeHistory[]>([])
   
   // UI states
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedItems, setSelectedItems] = useState<number[]>([])
-  const [currentPage, setCurrentPage] = useState(1)
-  const [pageSize, setPageSize] = useState(25)
-  const [totalItems, setTotalItems] = useState(0)
-  const [realTimeConnected, setRealTimeConnected] = useState(false)
   
   // Filter states (matching your Django admin filters)
   const [userTypeFilter, setUserTypeFilter] = useState("")
@@ -221,42 +188,19 @@ export function AdminDashboard() {
   const [routeStatusFilter, setRouteStatusFilter] = useState("")
   const [dateFromFilter, setDateFromFilter] = useState("")
   const [dateToFilter, setDateToFilter] = useState("")
-  const [weightMinFilter, setWeightMinFilter] = useState("")
-  const [weightMaxFilter, setWeightMaxFilter] = useState("")
-  const [costMinFilter, setCostMinFilter] = useState("")
-  const [costMaxFilter, setCostMaxFilter] = useState("")
   
   // Modal states
   const [userDialogOpen, setUserDialogOpen] = useState(false)
   const [packageDialogOpen, setPackageDialogOpen] = useState(false)
   const [routeDialogOpen, setRouteDialogOpen] = useState(false)
+  const [trackingEventDialogOpen, setTrackingEventDialogOpen] = useState(false)
   const [editingUser, setEditingUser] = useState<User | null>(null)
   const [editingPackage, setEditingPackage] = useState<Package | null>(null)
   const [editingRoute, setEditingRoute] = useState<Route | null>(null)
-  const [historyDialogOpen, setHistoryDialogOpen] = useState(false)
-  const [selectedHistoryItem, setSelectedHistoryItem] = useState<{type: string, id: number} | null>(null)
 
   useEffect(() => {
     fetchData()
-    setupRealTimeConnection()
-  }, [activeTab, currentPage, pageSize])
-
-  const setupRealTimeConnection = () => {
-    const ws = adminAPI.connectWebSocket((data) => {
-      if (data.type === 'package_status_changed') {
-        // Refresh package data
-        fetchData()
-      } else if (data.type === 'user_created') {
-        // Refresh user data
-        fetchData()
-      }
-      setRealTimeConnected(true)
-    })
-    
-    return () => {
-      if (ws) ws.close()
-    }
-  }
+  }, [activeTab])
 
   const fetchData = async () => {
     setLoading(true)
@@ -267,55 +211,31 @@ export function AdminDashboard() {
       } else if (activeTab === "users") {
         const usersResponse = await adminAPI.getUsers({
           user_type: userTypeFilter || undefined,
-          search: searchTerm || undefined,
-          is_active: userActiveFilter ? userActiveFilter === "true" : undefined,
-          date_joined_from: dateFromFilter || undefined,
-          date_joined_to: dateToFilter || undefined,
-          page: currentPage,
-          page_size: pageSize
+          // search: searchTerm || undefined
         })
         setUsers(usersResponse.results || usersResponse)
-        setTotalItems(usersResponse.count || usersResponse.length)
       } else if (activeTab === "packages") {
         const packagesResponse = await adminAPI.getPackages({
           status: packageStatusFilter || undefined,
-          package_type: packageTypeFilter || undefined,
-          search: searchTerm || undefined,
-          weight_min: weightMinFilter ? parseFloat(weightMinFilter) : undefined,
-          weight_max: weightMaxFilter ? parseFloat(weightMaxFilter) : undefined,
-          cost_min: costMinFilter ? parseFloat(costMinFilter) : undefined,
-          cost_max: costMaxFilter ? parseFloat(costMaxFilter) : undefined,
-          created_from: dateFromFilter || undefined,
-          created_to: dateToFilter || undefined,
-          page: currentPage,
-          page_size: pageSize
+          // package_type: packageTypeFilter || undefined,
+          // search: searchTerm || undefined
         })
         setPackages(packagesResponse.results || packagesResponse)
-        setTotalItems(packagesResponse.count || packagesResponse.length)
       } else if (activeTab === "routes") {
-        const routesResponse = await adminAPI.getRoutes()
-        setRoutes(routesResponse.results || routesResponse)
-        setTotalItems(routesResponse.count || routesResponse.length)
+        const routesResponse = await adminAPI.getRoutes?.() || []
+        setRoutes(routesResponse)
       } else if (activeTab === "service-areas") {
         const areasResponse = await adminAPI.getServiceAreas()
         setServiceAreas(areasResponse.results || areasResponse)
-        setTotalItems(areasResponse.count || areasResponse.length)
       } else if (activeTab === "tracking") {
         const trackingResponse = await adminAPI.getTrackingEvents({
           created_from: dateFromFilter || undefined,
-          created_to: dateToFilter || undefined,
-          page: currentPage
+          created_to: dateToFilter || undefined
         })
         setTrackingEvents(trackingResponse.results || trackingResponse)
-        setTotalItems(trackingResponse.count || trackingResponse.length)
       } else if (activeTab === "notifications") {
-        const notificationsResponse = await adminAPI.getNotifications({
-          sent_from: dateFromFilter || undefined,
-          sent_to: dateToFilter || undefined,
-          page: currentPage
-        })
-        setNotifications(notificationsResponse.results || notificationsResponse)
-        setTotalItems(notificationsResponse.count || notificationsResponse.length)
+        // Add notifications fetch
+        setNotifications([])
       }
     } catch (error) {
       console.error("Failed to fetch data:", error)
@@ -352,13 +272,33 @@ export function AdminDashboard() {
     }
   }
 
+  // Tracking event operations
+  const handleCreateTrackingEvent = async (eventData: any) => {
+    try {
+      await adminAPI.createTrackingEvent(eventData)
+      fetchData()
+      setTrackingEventDialogOpen(false)
+    } catch (error) {
+      console.error("Failed to create tracking event:", error)
+    }
+  }
+
+  const handleDeleteTrackingEvent = async (eventId: number) => {
+    try {
+      await adminAPI.deleteTrackingEvent(eventId)
+      fetchData()
+    } catch (error) {
+      console.error("Failed to delete tracking event:", error)
+    }
+  }
+
   // Bulk operations
   const handleBulkDelete = async (items: number[], type: string) => {
     try {
       if (type === 'users') {
-        await adminAPI.bulkDeleteUsers(items)
+        await Promise.all(items.map(id => adminAPI.deleteUser(id)))
       } else if (type === 'packages') {
-        await adminAPI.bulkDeletePackages(items)
+        await Promise.all(items.map(id => adminAPI.deletePackage(id)))
       }
       setSelectedItems([])
       fetchData()
@@ -367,73 +307,8 @@ export function AdminDashboard() {
     }
   }
 
-  const handleBulkUpdate = async (items: number[], updates: any, type: string) => {
-    try {
-      if (type === 'users') {
-        await adminAPI.bulkUpdateUsers(items, updates)
-      } else if (type === 'packages') {
-        await adminAPI.bulkUpdatePackages(items, updates)
-      }
-      setSelectedItems([])
-      fetchData()
-    } catch (error) {
-      console.error(`Failed to bulk update ${type}:`, error)
-    }
-  }
-
-  // Export functions
-  const handleExport = async (format: 'csv' | 'xlsx' | 'json') => {
-    try {
-      let blob: Blob
-      if (activeTab === 'users') {
-        blob = await adminAPI.exportUsers(format, {
-          user_type: userTypeFilter || undefined,
-          search: searchTerm || undefined,
-          is_active: userActiveFilter ? userActiveFilter === "true" : undefined,
-        })
-      } else if (activeTab === 'packages') {
-        blob = await adminAPI.exportPackages(format, {
-          status: packageStatusFilter || undefined,
-          package_type: packageTypeFilter || undefined,
-          search: searchTerm || undefined,
-        })
-      } else {
-        return
-      }
-
-      const url = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `${activeTab}_${new Date().toISOString().split('T')[0]}.${format}`
-      document.body.appendChild(a)
-      a.click()
-      window.URL.revokeObjectURL(url)
-      document.body.removeChild(a)
-    } catch (error) {
-      console.error("Export failed:", error)
-    }
-  }
-
-  // History functions
-  const handleViewHistory = async (type: string, id: number) => {
-    try {
-      let historyData
-      if (type === 'user') {
-        historyData = await adminAPI.getUserChangeHistory(id)
-      } else if (type === 'package') {
-        historyData = await adminAPI.getPackageChangeHistory(id)
-      }
-      setChangeHistory(historyData)
-      setSelectedHistoryItem({ type, id })
-      setHistoryDialogOpen(true)
-    } catch (error) {
-      console.error("Failed to fetch history:", error)
-    }
-  }
-
   // Filter functions
   const applyFilters = () => {
-    setCurrentPage(1)
     fetchData()
   }
 
@@ -446,11 +321,6 @@ export function AdminDashboard() {
     setRouteStatusFilter("")
     setDateFromFilter("")
     setDateToFilter("")
-    setWeightMinFilter("")
-    setWeightMaxFilter("")
-    setCostMinFilter("")
-    setCostMaxFilter("")
-    setCurrentPage(1)
     fetchData()
   }
 
@@ -512,25 +382,8 @@ export function AdminDashboard() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div className="flex items-center space-x-4">
-          <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-          {realTimeConnected && (
-            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-              <Zap className="h-3 w-3 mr-1" />
-              Live
-            </Badge>
-          )}
-        </div>
-        <div className="flex items-center space-x-2">
-          <Button variant="outline" onClick={fetchData}>
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh
-          </Button>
-        </div>
-      </div>
-
+      <div className="space-y-6">
+      <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
       <div className="flex justify-between items-center">
         <div className="flex items-center space-x-4">
           <div className="relative">
@@ -543,30 +396,6 @@ export function AdminDashboard() {
             />
           </div>
           
-          {/* Export Dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline">
-                <Download className="h-4 w-4 mr-2" />
-                Export
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem onClick={() => handleExport('csv')}>
-                <FileText className="h-4 w-4 mr-2" />
-                Export as CSV
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleExport('xlsx')}>
-                <FileText className="h-4 w-4 mr-2" />
-                Export as Excel
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleExport('json')}>
-                <FileText className="h-4 w-4 mr-2" />
-                Export as JSON
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          
           {/* Filter dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -575,36 +404,13 @@ export function AdminDashboard() {
                 Filters
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-80">
-              <DropdownMenuLabel>Advanced Filters</DropdownMenuLabel>
+            <DropdownMenuContent className="w-56">
+              <DropdownMenuLabel>Filter Options</DropdownMenuLabel>
               <DropdownMenuSeparator />
               
-              {/* Date Range Filters */}
-              <div className="p-3 space-y-3">
-                <div>
-                  <Label className="text-xs font-medium">Date From</Label>
-                  <Input
-                    type="date"
-                    value={dateFromFilter}
-                    onChange={(e) => setDateFromFilter(e.target.value)}
-                    className="h-8"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs font-medium">Date To</Label>
-                  <Input
-                    type="date"
-                    value={dateToFilter}
-                    onChange={(e) => setDateToFilter(e.target.value)}
-                    className="h-8"
-                  />
-                </div>
-              </div>
-
               {activeTab === "users" && (
                 <>
-                  <DropdownMenuSeparator />
-                  <div className="p-3">
+                  <div className="p-2">
                     <Label className="text-xs">User Type</Label>
                     <Select value={userTypeFilter} onValueChange={setUserTypeFilter}>
                       <SelectTrigger className="h-8">
@@ -619,7 +425,7 @@ export function AdminDashboard() {
                     </Select>
                   </div>
                   
-                  <div className="p-3">
+                  <div className="p-2">
                     <Label className="text-xs">Active Status</Label>
                     <Select value={userActiveFilter} onValueChange={setUserActiveFilter}>
                       <SelectTrigger className="h-8">
@@ -637,8 +443,7 @@ export function AdminDashboard() {
               
               {activeTab === "packages" && (
                 <>
-                  <DropdownMenuSeparator />
-                  <div className="p-3">
+                  <div className="p-2">
                     <Label className="text-xs">Package Status</Label>
                     <Select value={packageStatusFilter} onValueChange={setPackageStatusFilter}>
                       <SelectTrigger className="h-8">
@@ -656,7 +461,7 @@ export function AdminDashboard() {
                     </Select>
                   </div>
                   
-                  <div className="p-3">
+                  <div className="p-2">
                     <Label className="text-xs">Package Type</Label>
                     <Select value={packageTypeFilter} onValueChange={setPackageTypeFilter}>
                       <SelectTrigger className="h-8">
@@ -671,48 +476,11 @@ export function AdminDashboard() {
                       </SelectContent>
                     </Select>
                   </div>
-
-                  {/* Weight and Cost Filters */}
-                  <div className="p-3 space-y-2">
-                    <Label className="text-xs">Weight Range (kg)</Label>
-                    <div className="flex space-x-2">
-                      <Input
-                        placeholder="Min"
-                        value={weightMinFilter}
-                        onChange={(e) => setWeightMinFilter(e.target.value)}
-                        className="h-8"
-                      />
-                      <Input
-                        placeholder="Max"
-                        value={weightMaxFilter}
-                        onChange={(e) => setWeightMaxFilter(e.target.value)}
-                        className="h-8"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="p-3 space-y-2">
-                    <Label className="text-xs">Cost Range ($)</Label>
-                    <div className="flex space-x-2">
-                      <Input
-                        placeholder="Min"
-                        value={costMinFilter}
-                        onChange={(e) => setCostMinFilter(e.target.value)}
-                        className="h-8"
-                      />
-                      <Input
-                        placeholder="Max"
-                        value={costMaxFilter}
-                        onChange={(e) => setCostMaxFilter(e.target.value)}
-                        className="h-8"
-                      />
-                    </div>
-                  </div>
                 </>
               )}
               
               <DropdownMenuSeparator />
-              <div className="p-3 space-y-2">
+              <div className="p-2 space-y-2">
                 <Button onClick={applyFilters} size="sm" className="w-full">
                   Apply Filters
                 </Button>
@@ -723,23 +491,7 @@ export function AdminDashboard() {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-
-        {/* Page Size Selector */}
-        <div className="flex items-center space-x-2">
-          <Label className="text-sm">Show:</Label>
-          <Select value={pageSize.toString()} onValueChange={(value) => setPageSize(parseInt(value))}>
-            <SelectTrigger className="w-20">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="10">10</SelectItem>
-              <SelectItem value="25">25</SelectItem>
-              <SelectItem value="50">50</SelectItem>
-              <SelectItem value="100">100</SelectItem>
-            </SelectContent>
-          </Select>
         </div>
-      </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-7">
@@ -754,7 +506,7 @@ export function AdminDashboard() {
 
         {/* DASHBOARD TAB */}
         <TabsContent value="dashboard" className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Total Packages</CardTitle>
@@ -788,7 +540,7 @@ export function AdminDashboard() {
               </CardContent>
             </Card>
 
-            <Card>
+              <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
@@ -796,31 +548,31 @@ export function AdminDashboard() {
               <CardContent>
                 <div className="text-2xl font-bold">${stats.total_revenue}</div>
                 <p className="text-xs text-muted-foreground">All time revenue</p>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
 
-            <Card>
+          <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Packages Today</CardTitle>
                 <Activity className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
+            </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{stats.packages_today}</div>
                 <p className="text-xs text-muted-foreground">Created today</p>
-              </CardContent>
-            </Card>
+            </CardContent>
+          </Card>
 
-            <Card>
+          <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Completed Deliveries</CardTitle>
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
+            </CardHeader>
+            <CardContent>
                 <div className="text-2xl font-bold">{stats.deliveries_completed}</div>
                 <p className="text-xs text-muted-foreground">Successfully delivered</p>
               </CardContent>
             </Card>
-          </div>
+                  </div>
         </TabsContent>
 
         {/* USERS TAB */}
@@ -829,47 +581,28 @@ export function AdminDashboard() {
             <h2 className="text-2xl font-semibold">User Management</h2>
             <div className="flex items-center space-x-2">
               {selectedItems.length > 0 && (
-                <>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="destructive" size="sm">
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Delete Selected ({selectedItems.length})
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Delete Users</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Are you sure you want to delete {selectedItems.length} selected users? This action cannot be undone.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => handleBulkDelete(selectedItems, 'users')}>
-                          Delete Users
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" size="sm">
-                        <Edit className="h-4 w-4 mr-2" />
-                        Bulk Update
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent>
-                      <DropdownMenuItem onClick={() => handleBulkUpdate(selectedItems, { is_active: true }, 'users')}>
-                        Activate Users
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleBulkUpdate(selectedItems, { is_active: false }, 'users')}>
-                        Deactivate Users
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" size="sm">
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete Selected ({selectedItems.length})
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete Users</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Are you sure you want to delete {selectedItems.length} selected users? This action cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => handleBulkDelete(selectedItems, 'users')}>
+                        Delete Users
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               )}
               <Button onClick={() => {
                 setEditingUser(null)
@@ -878,8 +611,8 @@ export function AdminDashboard() {
                 <Plus className="h-4 w-4 mr-2" />
                 Add User
               </Button>
-            </div>
-          </div>
+                      </div>
+                    </div>
 
           <Card>
             <CardContent className="p-0">
@@ -948,9 +681,6 @@ export function AdminDashboard() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center space-x-2">
-                          <Button variant="ghost" size="sm" onClick={() => handleViewHistory('user', user.id)}>
-                            <History className="h-4 w-4" />
-                          </Button>
                           <Button variant="ghost" size="sm">
                             <Eye className="h-4 w-4" />
                           </Button>
@@ -993,34 +723,6 @@ export function AdminDashboard() {
               </Table>
             </CardContent>
           </Card>
-
-          {/* Pagination */}
-          <div className="flex justify-between items-center">
-            <div className="text-sm text-gray-500">
-              Showing {(currentPage - 1) * pageSize + 1} to {Math.min(currentPage * pageSize, totalItems)} of {totalItems} users
-            </div>
-            <div className="flex items-center space-x-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                disabled={currentPage === 1}
-              >
-                Previous
-              </Button>
-              <span className="text-sm">
-                Page {currentPage} of {Math.ceil(totalItems / pageSize)}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(Math.min(Math.ceil(totalItems / pageSize), currentPage + 1))}
-                disabled={currentPage === Math.ceil(totalItems / pageSize)}
-              >
-                Next
-              </Button>
-            </div>
-          </div>
         </TabsContent>
 
         {/* PACKAGES TAB */}
@@ -1029,54 +731,35 @@ export function AdminDashboard() {
             <h2 className="text-2xl font-semibold">Package Management</h2>
             <div className="flex items-center space-x-2">
               {selectedItems.length > 0 && (
-                <>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="destructive" size="sm">
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Delete Selected ({selectedItems.length})
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Delete Packages</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Are you sure you want to delete {selectedItems.length} selected packages? This action cannot be undone.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => handleBulkDelete(selectedItems, 'packages')}>
-                          Delete Packages
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" size="sm">
-                        <Edit className="h-4 w-4 mr-2" />
-                        Bulk Update
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent>
-                      <DropdownMenuItem onClick={() => handleBulkUpdate(selectedItems, { status: 'delivered' }, 'packages')}>
-                        Mark as Delivered
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleBulkUpdate(selectedItems, { status: 'in_transit' }, 'packages')}>
-                        Mark as In Transit
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" size="sm">
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete Selected ({selectedItems.length})
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete Packages</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Are you sure you want to delete {selectedItems.length} selected packages? This action cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => handleBulkDelete(selectedItems, 'packages')}>
+                        Delete Packages
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               )}
               <Button onClick={() => setPackageDialogOpen(true)}>
                 <Plus className="h-4 w-4 mr-2" />
                 Add Package
               </Button>
-            </div>
-          </div>
+                      </div>
+                    </div>
 
           <Card>
             <CardContent className="p-0">
@@ -1135,9 +818,6 @@ export function AdminDashboard() {
                       <TableCell>${pkg.shipping_cost}</TableCell>
                       <TableCell>
                         <div className="flex items-center space-x-2">
-                          <Button variant="ghost" size="sm" onClick={() => handleViewHistory('package', pkg.id)}>
-                            <History className="h-4 w-4" />
-                          </Button>
                           <Button variant="ghost" size="sm">
                             <Eye className="h-4 w-4" />
                           </Button>
@@ -1185,34 +865,6 @@ export function AdminDashboard() {
               </Table>
             </CardContent>
           </Card>
-
-          {/* Pagination */}
-          <div className="flex justify-between items-center">
-            <div className="text-sm text-gray-500">
-              Showing {(currentPage - 1) * pageSize + 1} to {Math.min(currentPage * pageSize, totalItems)} of {totalItems} packages
-            </div>
-            <div className="flex items-center space-x-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                disabled={currentPage === 1}
-              >
-                Previous
-              </Button>
-              <span className="text-sm">
-                Page {currentPage} of {Math.ceil(totalItems / pageSize)}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(Math.min(Math.ceil(totalItems / pageSize), currentPage + 1))}
-                disabled={currentPage === Math.ceil(totalItems / pageSize)}
-              >
-                Next
-              </Button>
-            </div>
-          </div>
         </TabsContent>
 
         {/* ROUTES TAB */}
@@ -1261,7 +913,7 @@ export function AdminDashboard() {
                           <Button variant="ghost" size="sm">
                             <MapPin className="h-4 w-4" />
                           </Button>
-                        </div>
+                      </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -1279,7 +931,7 @@ export function AdminDashboard() {
               <Plus className="h-4 w-4 mr-2" />
               Add Service Area
             </Button>
-          </div>
+                    </div>
 
           <Card>
             <CardContent className="p-0">
@@ -1330,9 +982,9 @@ export function AdminDashboard() {
         <TabsContent value="tracking" className="space-y-6">
           <div className="flex justify-between items-center">
             <h2 className="text-2xl font-semibold">Tracking Events</h2>
-            <Button>
-              <Download className="h-4 w-4 mr-2" />
-              Export
+            <Button onClick={() => setTrackingEventDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Tracking Event
             </Button>
           </div>
 
@@ -1362,9 +1014,35 @@ export function AdminDashboard() {
                       <TableCell>{event.created_by.username}</TableCell>
                       <TableCell>{new Date(event.timestamp).toLocaleString()}</TableCell>
                       <TableCell>
-                        <Button variant="ghost" size="sm">
-                          <MapPin className="h-4 w-4" />
-                        </Button>
+                        <div className="flex items-center space-x-2">
+                          <Button variant="ghost" size="sm">
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="sm">
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="sm">
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete Tracking Event</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Are you sure you want to delete this tracking event? This action cannot be undone.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleDeleteTrackingEvent(event.id)}>
+                                  Delete
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -1382,7 +1060,7 @@ export function AdminDashboard() {
               <Mail className="h-4 w-4 mr-2" />
               Send Notification
             </Button>
-          </div>
+              </div>
 
           <Card>
             <CardContent className="p-0">
@@ -1427,45 +1105,121 @@ export function AdminDashboard() {
         </TabsContent>
       </Tabs>
 
-      {/* Change History Modal */}
-      <Dialog open={historyDialogOpen} onOpenChange={setHistoryDialogOpen}>
-        <DialogContent className="max-w-4xl">
+      {/* Tracking Event Creation Modal */}
+      <Dialog open={trackingEventDialogOpen} onOpenChange={setTrackingEventDialogOpen}>
+        <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Change History</DialogTitle>
+            <DialogTitle>Add Tracking Event</DialogTitle>
             <DialogDescription>
-              View all changes made to this {selectedHistoryItem?.type}
+              Create a new tracking event for a package, just like Django admin.
             </DialogDescription>
           </DialogHeader>
-          <div className="max-h-96 overflow-y-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Field</TableHead>
-                  <TableHead>Old Value</TableHead>
-                  <TableHead>New Value</TableHead>
-                  <TableHead>Changed By</TableHead>
-                  <TableHead>Changed At</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {changeHistory.map((change) => (
-                  <TableRow key={change.id}>
-                    <TableCell>{change.field_name}</TableCell>
-                    <TableCell>{change.old_value || '-'}</TableCell>
-                    <TableCell>{change.new_value}</TableCell>
-                    <TableCell>{change.changed_by.username}</TableCell>
-                    <TableCell>{new Date(change.changed_at).toLocaleString()}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+
+          <form onSubmit={(e) => {
+            e.preventDefault()
+            const formData = new FormData(e.target as HTMLFormElement)
+            const eventData = {
+              package: parseInt(formData.get('package') as string),
+              status: formData.get('status') as string,
+              description: formData.get('description') as string,
+              location: formData.get('location') as string || undefined,
+              latitude: formData.get('latitude') ? parseFloat(formData.get('latitude') as string) : undefined,
+              longitude: formData.get('longitude') ? parseFloat(formData.get('longitude') as string) : undefined,
+            }
+            handleCreateTrackingEvent(eventData)
+          }} className="space-y-4">
+            <div>
+              <Label htmlFor="package">Package</Label>
+              <Select name="package" required>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select package" />
+                </SelectTrigger>
+                <SelectContent>
+                  {packages.map((pkg) => (
+                    <SelectItem key={pkg.id} value={pkg.id.toString()}>
+                      {pkg.tracking_number} - {pkg.recipient_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="status">Status</Label>
+              <Select name="status" required>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="picked_up">Picked Up</SelectItem>
+                  <SelectItem value="in_transit">In Transit</SelectItem>
+                  <SelectItem value="out_for_delivery">Out for Delivery</SelectItem>
+                  <SelectItem value="delivered">Delivered</SelectItem>
+                  <SelectItem value="failed_delivery">Failed Delivery</SelectItem>
+                  <SelectItem value="returned">Returned</SelectItem>
+                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                name="description"
+                placeholder="Event description..."
+                required
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="location">Location (Optional)</Label>
+              <Input
+                name="location"
+                placeholder="Current location"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="latitude">Latitude (Optional)</Label>
+                <Input
+                  name="latitude"
+                  type="number"
+                  step="any"
+                  placeholder="Latitude"
+                />
+              </div>
+              <div>
+                <Label htmlFor="longitude">Longitude (Optional)</Label>
+                <Input
+                  name="longitude"
+                  type="number"
+                  step="any"
+                  placeholder="Longitude"
+                />
+        </div>
+      </div>
+
+            <div className="flex justify-end space-x-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setTrackingEventDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit">
+                Create Tracking Event
+              </Button>
+            </div>
+          </form>
         </DialogContent>
       </Dialog>
 
       {/* Modals */}
       <UserFormModal
-        user={editingUser as any}
+        user={editingUser}
         isOpen={userDialogOpen}
         onClose={() => setUserDialogOpen(false)}
         onSave={fetchData}

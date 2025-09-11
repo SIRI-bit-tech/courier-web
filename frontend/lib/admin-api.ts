@@ -40,24 +40,11 @@ class AdminAPIService {
     return this.handleResponse(response)
   }
 
-  // User Management - ADVANCED VERSION
-  async getUsers(params?: {
-    user_type?: string
-    search?: string
-    is_active?: boolean
-    date_joined_from?: string
-    date_joined_to?: string
-    page?: number
-    page_size?: number
-  }) {
+  // User Management
+  async getUsers(params?: { user_type?: string; page?: number }) {
     const queryParams = new URLSearchParams()
     if (params?.user_type) queryParams.append("user_type", params.user_type)
-    if (params?.search) queryParams.append("search", params.search)
-    if (params?.is_active !== undefined) queryParams.append("is_active", params.is_active.toString())
-    if (params?.date_joined_from) queryParams.append("date_joined_from", params.date_joined_from)
-    if (params?.date_joined_to) queryParams.append("date_joined_to", params.date_joined_to)
     if (params?.page) queryParams.append("page", params.page.toString())
-    if (params?.page_size) queryParams.append("page_size", params.page_size.toString())
 
     const response = await fetch(`${API_BASE_URL}/api/accounts/admin/users/?${queryParams}`, {
       headers: this.getAuthHeaders(),
@@ -93,53 +80,12 @@ class AdminAPIService {
     }
   }
 
-  // Bulk User Operations
-  async bulkDeleteUsers(userIds: number[]) {
-    const response = await fetch(`${API_BASE_URL}/api/accounts/admin/users/bulk-delete/`, {
-      method: "POST",
-      headers: this.getAuthHeaders(),
-      body: JSON.stringify({ user_ids: userIds }),
-    })
-    return this.handleResponse(response)
-  }
-
-  async bulkUpdateUsers(userIds: number[], updates: any) {
-    const response = await fetch(`${API_BASE_URL}/api/accounts/admin/users/bulk-update/`, {
-      method: "POST",
-      headers: this.getAuthHeaders(),
-      body: JSON.stringify({ user_ids: userIds, updates }),
-    })
-    return this.handleResponse(response)
-  }
-
-  // Package Management - ADVANCED VERSION
-  async getPackages(params?: {
-    status?: string
-    package_type?: string
-    sender?: string
-    search?: string
-    weight_min?: number
-    weight_max?: number
-    cost_min?: number
-    cost_max?: number
-    created_from?: string
-    created_to?: string
-    page?: number
-    page_size?: number
-  }) {
+  // Package Management
+  async getPackages(params?: { status?: string; sender?: string; page?: number }) {
     const queryParams = new URLSearchParams()
     if (params?.status) queryParams.append("status", params.status)
-    if (params?.package_type) queryParams.append("package_type", params.package_type)
     if (params?.sender) queryParams.append("sender", params.sender)
-    if (params?.search) queryParams.append("search", params.search)
-    if (params?.weight_min) queryParams.append("weight_min", params.weight_min.toString())
-    if (params?.weight_max) queryParams.append("weight_max", params.weight_max.toString())
-    if (params?.cost_min) queryParams.append("cost_min", params.cost_min.toString())
-    if (params?.cost_max) queryParams.append("cost_max", params.cost_max.toString())
-    if (params?.created_from) queryParams.append("created_from", params.created_from)
-    if (params?.created_to) queryParams.append("created_to", params.created_to)
     if (params?.page) queryParams.append("page", params.page.toString())
-    if (params?.page_size) queryParams.append("page_size", params.page_size.toString())
 
     const response = await fetch(`${API_BASE_URL}/api/packages/admin/packages/?${queryParams}`, {
       headers: this.getAuthHeaders(),
@@ -198,122 +144,6 @@ class AdminAPIService {
     if (!response.ok) {
       throw new Error("Failed to delete package")
     }
-  }
-
-  // Bulk Package Operations
-  async bulkDeletePackages(packageIds: number[]) {
-    const response = await fetch(`${API_BASE_URL}/api/packages/admin/packages/bulk-delete/`, {
-      method: "POST",
-      headers: this.getAuthHeaders(),
-      body: JSON.stringify({ package_ids: packageIds }),
-    })
-    return this.handleResponse(response)
-  }
-
-  async bulkUpdatePackages(packageIds: number[], updates: any) {
-    const response = await fetch(`${API_BASE_URL}/api/packages/admin/packages/bulk-update/`, {
-      method: "POST",
-      headers: this.getAuthHeaders(),
-      body: JSON.stringify({ package_ids: packageIds, updates }),
-    })
-    return this.handleResponse(response)
-  }
-
-  // Export Data
-  async exportUsers(format: 'csv' | 'xlsx' | 'json', params?: any) {
-    const queryParams = new URLSearchParams({ format })
-    if (params) {
-      Object.entries(params).forEach(([key, value]) => {
-        if (value !== undefined && value !== null) {
-          queryParams.append(key, value.toString())
-        }
-      })
-    }
-
-    const response = await fetch(`${API_BASE_URL}/api/accounts/admin/users/export/?${queryParams}`, {
-      headers: this.getAuthHeaders(),
-    })
-
-    if (!response.ok) {
-      throw new Error("Export failed")
-    }
-
-    return response.blob()
-  }
-
-  async exportPackages(format: 'csv' | 'xlsx' | 'json', params?: any) {
-    const queryParams = new URLSearchParams({ format })
-    if (params) {
-      Object.entries(params).forEach(([key, value]) => {
-        if (value !== undefined && value !== null) {
-          queryParams.append(key, value.toString())
-        }
-      })
-    }
-
-    const response = await fetch(`${API_BASE_URL}/api/packages/admin/packages/export/?${queryParams}`, {
-      headers: this.getAuthHeaders(),
-    })
-
-    if (!response.ok) {
-      throw new Error("Export failed")
-    }
-
-    return response.blob()
-  }
-
-  // File Upload Support
-  async uploadFile(file: File, type: 'qr_code' | 'document' | 'image') {
-    const formData = new FormData()
-    formData.append('file', file)
-    formData.append('type', type)
-
-    const response = await fetch(`${API_BASE_URL}/api/uploads/admin/upload/`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem("admin_access_token")}`,
-      },
-      body: formData,
-    })
-    return this.handleResponse(response)
-  }
-
-  // Change History / Audit Logs
-  async getUserChangeHistory(userId: number) {
-    const response = await fetch(`${API_BASE_URL}/api/accounts/admin/users/${userId}/history/`, {
-      headers: this.getAuthHeaders(),
-    })
-    return this.handleResponse(response)
-  }
-
-  async getPackageChangeHistory(packageId: number) {
-    const response = await fetch(`${API_BASE_URL}/api/packages/admin/packages/${packageId}/history/`, {
-      headers: this.getAuthHeaders(),
-    })
-    return this.handleResponse(response)
-  }
-
-  // Real-time WebSocket Connection
-  connectWebSocket(onMessage: (data: any) => void) {
-    const token = localStorage.getItem("admin_access_token")
-    if (!token) return null
-
-    const ws = new WebSocket(`${API_BASE_URL.replace('http', 'ws')}/ws/admin/?token=${token}`)
-
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data)
-      onMessage(data)
-    }
-
-    ws.onclose = () => {
-      console.log("WebSocket connection closed")
-    }
-
-    ws.onerror = (error) => {
-      console.error("WebSocket error:", error)
-    }
-
-    return ws
   }
 
   // Service Area Management
@@ -388,7 +218,7 @@ class AdminAPIService {
     }
   }
 
-  // Tracking Events
+  // Tracking Events Management
   async getTrackingEvents(params?: {
     package_id?: number
     status?: string
@@ -407,6 +237,41 @@ class AdminAPIService {
       headers: this.getAuthHeaders(),
     })
     return this.handleResponse(response)
+  }
+
+  async createTrackingEvent(eventData: {
+    package: number
+    status: string
+    description: string
+    location?: string
+    latitude?: number
+    longitude?: number
+  }) {
+    const response = await fetch(`${API_BASE_URL}/api/tracking/admin/events/`, {
+      method: "POST",
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(eventData),
+    })
+    return this.handleResponse(response)
+  }
+
+  async updateTrackingEvent(eventId: number, eventData: any) {
+    const response = await fetch(`${API_BASE_URL}/api/tracking/admin/events/${eventId}/`, {
+      method: "PATCH",
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(eventData),
+    })
+    return this.handleResponse(response)
+  }
+
+  async deleteTrackingEvent(eventId: number) {
+    const response = await fetch(`${API_BASE_URL}/api/tracking/admin/events/${eventId}/`, {
+      method: "DELETE",
+      headers: this.getAuthHeaders(),
+    })
+    if (!response.ok) {
+      throw new Error("Failed to delete tracking event")
+    }
   }
 
   // Notifications
