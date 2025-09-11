@@ -30,7 +30,7 @@ class PackageCreateSerializer(serializers.ModelSerializer):
             'sender_state', 'sender_zip', 'recipient_name', 'recipient_phone', 
             'recipient_address', 'recipient_city', 'recipient_state', 'recipient_zip',
             'package_type', 'weight', 'length', 'width', 'height', 'declared_value',
-            'delivery_instructions'
+            # 'delivery_instructions'
         )
 
     def create(self, validated_data):
