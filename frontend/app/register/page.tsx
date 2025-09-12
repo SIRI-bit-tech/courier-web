@@ -30,19 +30,62 @@ export default function RegisterPage() {
     city: "",
     state: "",
     zip_code: "",
-    country: "United States",
+    country: "US",
   })
+  
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
+  
+  // Password validation state
+  const [passwordValidation, setPasswordValidation] = useState({
+    length: false,
+    uppercase: false,
+    lowercase: false,
+    digit: false,
+    special: false,
+    isValid: false
+  })
 
   const { register } = useAuth()
   const router = useRouter()
+
+  // Password validation function
+  const validatePassword = (password: string) => {
+    const length = password.length >= 8
+    const uppercase = /[A-Z]/.test(password)
+    const lowercase = /[a-z]/.test(password)
+    const digit = /\d/.test(password)
+    const special = /[!@#$%^&*()_+\-=\[\]{};\':"\\|,.<>\/?]/.test(password)
+  
+  return {
+    length,
+    uppercase,
+    lowercase,
+    digit,
+    special,
+    isValid: length && uppercase && lowercase && digit && special
+  }
+  }
+
+  // Handle password input change with validation
+  const handlePasswordChange = (password: string) => {
+    handleInputChange("password", password)
+    const validation = validatePassword(password)
+    setPasswordValidation(validation)
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError("")
+
+    // Check password validation
+    if (!passwordValidation.isValid) {
+      setError("Please ensure your password meets all requirements")
+      setLoading(false)
+      return
+    }
 
     if (formData.password !== formData.password_confirm) {
       setError("Passwords do not match")
@@ -161,8 +204,9 @@ export default function RegisterPage() {
                       type={showPassword ? "text" : "password"}
                       placeholder="Enter password"
                       value={formData.password}
-                      onChange={(e) => handleInputChange("password", e.target.value)}
+                      onChange={(e) => handlePasswordChange(e.target.value)}
                       required
+                      className={passwordValidation.isValid ? "border-green-500" : formData.password && !passwordValidation.isValid ? "border-red-500" : ""}
                     />
                     <Button
                       type="button"
@@ -174,6 +218,42 @@ export default function RegisterPage() {
                       {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </Button>
                   </div>
+                  
+                  {/* Password Strength Indicator */}
+                  {formData.password && (
+                    <div className="mt-2 space-y-1">
+                      <div className="flex items-center gap-2 text-xs">
+                        <div className={`w-2 h-2 rounded-full ${passwordValidation.length ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                        <span className={passwordValidation.length ? 'text-green-600' : 'text-red-600'}>
+                          At least 8 characters
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs">
+                        <div className={`w-2 h-2 rounded-full ${passwordValidation.uppercase ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                        <span className={passwordValidation.uppercase ? 'text-green-600' : 'text-red-600'}>
+                          One uppercase letter
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs">
+                        <div className={`w-2 h-2 rounded-full ${passwordValidation.lowercase ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                        <span className={passwordValidation.lowercase ? 'text-green-600' : 'text-red-600'}>
+                          One lowercase letter
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs">
+                        <div className={`w-2 h-2 rounded-full ${passwordValidation.digit ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                        <span className={passwordValidation.digit ? 'text-green-600' : 'text-red-600'}>
+                          One number
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs">
+                        <div className={`w-2 h-2 rounded-full ${passwordValidation.special ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                        <span className={passwordValidation.special ? 'text-green-600' : 'text-red-600'}>
+                          One special character
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="password_confirm">Confirm Password</Label>
@@ -184,7 +264,26 @@ export default function RegisterPage() {
                     value={formData.password_confirm}
                     onChange={(e) => handleInputChange("password_confirm", e.target.value)}
                     required
+                    className={
+                      formData.password_confirm && formData.password === formData.password_confirm 
+                        ? "border-green-500" 
+                        : formData.password_confirm && formData.password !== formData.password_confirm 
+                        ? "border-red-500" 
+                        : ""
+                    }
                   />
+                  {formData.password_confirm && (
+                    <div className="flex items-center gap-2 text-xs mt-1">
+                      <div className={`w-2 h-2 rounded-full ${
+                        formData.password === formData.password_confirm ? 'bg-green-500' : 'bg-red-500'
+                      }`}></div>
+                      <span className={
+                        formData.password === formData.password_confirm ? 'text-green-600' : 'text-red-600'
+                      }>
+                        {formData.password === formData.password_confirm ? 'Passwords match' : 'Passwords do not match'}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -210,7 +309,7 @@ export default function RegisterPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="city">City</Label>
                   <Input
@@ -240,6 +339,26 @@ export default function RegisterPage() {
                     onChange={(e) => handleInputChange("zip_code", e.target.value)}
                     required
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="country">Country</Label>
+                  <Select value={formData.country} onValueChange={(value) => handleInputChange("country", value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select country" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="US">🇺🇸 United States</SelectItem>
+                      <SelectItem value="CA">🇨🇦 Canada</SelectItem>
+                      <SelectItem value="MX">🇲🇽 Mexico</SelectItem>
+                      <SelectItem value="GB">🇬🇧 United Kingdom</SelectItem>
+                      <SelectItem value="DE">🇩🇪 Germany</SelectItem>
+                      <SelectItem value="FR">🇫🇷 France</SelectItem>
+                      <SelectItem value="IT">🇮🇹 Italy</SelectItem>
+                      <SelectItem value="ES">🇪🇸 Spain</SelectItem>
+                      <SelectItem value="AU">🇦🇺 Australia</SelectItem>
+                      <SelectItem value="JP">🇯🇵 Japan</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 

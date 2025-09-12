@@ -1,10 +1,14 @@
-Django==4.2.7
+Django
 djangorestframework==3.14.0
 djangorestframework-simplejwt==5.3.0
+django-filter
 psycopg2-binary==2.9.9
 django-cors-headers==4.3.1
+redis
 channels==4.0.0
 channels-redis==4.1.0
+cryptography
+python-jose[cryptography]
 daphne==4.0.0
 drf-yasg==1.21.7
 python-dotenv==1.0.0
