@@ -42,19 +42,19 @@ class Package(models.Model):
         db_index=True
     )
     
-    # Package details
-    sender_name = models.CharField(max_length=100, db_index=True)
+    # Package details - Make required fields have defaults
+    sender_name = models.CharField(max_length=100, db_index=True, default='Unknown Sender')
     sender_email = models.EmailField(default='no-email@example.com')
     sender_phone = models.CharField(max_length=20, default='000-000-0000')
-    sender_address = models.TextField()
+    sender_address = models.TextField(default='No address provided')
     sender_city = models.CharField(max_length=100, default='Unknown')
     sender_state = models.CharField(max_length=100, default='Unknown')
     sender_zip = models.CharField(max_length=10, default='00000')
     
-    recipient_name = models.CharField(max_length=100, db_index=True)
+    recipient_name = models.CharField(max_length=100, db_index=True, default='Unknown Recipient')
     recipient_email = models.EmailField(default='no-email@example.com')
     recipient_phone = models.CharField(max_length=20, default='000-000-0000')
-    recipient_address = models.TextField()
+    recipient_address = models.TextField(default='No address provided')
     recipient_city = models.CharField(max_length=100, default='Unknown')
     recipient_state = models.CharField(max_length=100, default='Unknown')
     recipient_zip = models.CharField(max_length=10, default='00000')

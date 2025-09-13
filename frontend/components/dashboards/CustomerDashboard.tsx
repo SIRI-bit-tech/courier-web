@@ -34,7 +34,7 @@ export function CustomerDashboard() {
     fetchPackages()
     // Add delay before WebSocket connection to avoid race conditions
     const timer = setTimeout(() => {
-      setupWebSocketConnection()
+    setupWebSocketConnection()
     }, 1000)
 
     return () => {
@@ -272,7 +272,7 @@ export function CustomerDashboard() {
             <CardContent>
               <div className="text-2xl font-bold">
                 {getPackageCount('delivered')}
-              </div>
+                </div>
               <p className="text-xs text-muted-foreground">
                 Successfully completed
               </p>
@@ -301,13 +301,13 @@ export function CustomerDashboard() {
         <div className="flex items-center space-x-2">
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
+              <Input
               placeholder="Search packages..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-8"
-            />
-          </div>
+              />
+            </div>
         </div>
 
         {/* Packages List */}
@@ -328,12 +328,12 @@ export function CustomerDashboard() {
                 </p>
                 {!searchTerm && (
                   <div className="mt-6">
-                    <Link href="/ship">
+                <Link href="/ship">
                       <Button>
                         <Plus className="mr-2 h-4 w-4" />
                         Ship Your First Package
                       </Button>
-                    </Link>
+                </Link>
                   </div>
                 )}
               </div>
@@ -351,7 +351,7 @@ export function CustomerDashboard() {
                       {getStatusIcon(pkg.status)}
                       <div>
                         <p className="text-sm font-medium leading-none">
-                          {pkg.tracking_number}
+                            {pkg.tracking_number}
                         </p>
                         <p className="text-sm text-muted-foreground">
                           {pkg.recipient_name}
@@ -359,17 +359,17 @@ export function CustomerDashboard() {
                         <p className="text-sm text-muted-foreground">
                           {pkg.recipient_address}
                         </p>
+                        </div>
                       </div>
-                    </div>
                     <div className="flex items-center space-x-2">
                       <Badge className={getStatusBadgeColor(pkg.status)}>
                         {pkg.status.replace('_', ' ')}
                       </Badge>
-                      <Link href={`/track/${pkg.tracking_number}`}>
-                        <Button variant="outline" size="sm">
-                          Track
-                        </Button>
-                      </Link>
+                        <Link href={`/track/${pkg.tracking_number}`}>
+                          <Button variant="outline" size="sm">
+                            Track
+                          </Button>
+                        </Link>
                     </div>
                   </motion.div>
                 ))}

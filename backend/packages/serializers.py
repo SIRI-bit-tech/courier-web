@@ -26,11 +26,13 @@ class PackageCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Package
         fields = (
+            'tracking_number',  # Add this for the response
             'sender_name', 'sender_phone', 'sender_address', 'sender_city', 
             'sender_state', 'sender_zip', 'recipient_name', 'recipient_phone', 
             'recipient_address', 'recipient_city', 'recipient_state', 'recipient_zip',
             'package_type', 'weight', 'length', 'width', 'height', 'declared_value',
         )
+        read_only_fields = ('tracking_number',)  # Make it read-only
     
     def validate_weight(self, value):
         if not value or value <= 0:

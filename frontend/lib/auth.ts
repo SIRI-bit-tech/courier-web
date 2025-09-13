@@ -322,14 +322,19 @@ class AuthService {
       
       return { success: true, package: response.data }
     } catch (error: any) {
-      // Enhanced error logging
-      if (isDevelopment) {
-        console.error('Package creation error details:', {
-          status: error.response?.status,
-          statusText: error.response?.statusText,
-          data: error.response?.data,
-          fullError: error
-        })
+      // Enhanced error logging - Always show for debugging
+      console.error('❌ Package creation ERROR response:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message
+      })
+      
+      // Handle different error types
+      if (error.response?.status === 201) {
+        // This is actually a success! The package was created
+        console.log('🎉 Actually a success! Status 201 with data:', error.response.data)
+        return { success: true, package: error.response.data }
       }
       
       // Handle validation errors properly
