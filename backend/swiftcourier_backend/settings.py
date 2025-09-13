@@ -66,6 +66,11 @@ MIDDLEWARE = [
     'swiftcourier_backend.middleware.InputValidationMiddleware',
     # Enhanced rate limiting
     'swiftcourier_backend.middleware.EnhancedRateLimitMiddleware',
+    # Database optimization middleware
+    'swiftcourier_backend.middleware.DatabaseConnectionMiddleware',
+    'swiftcourier_backend.middleware.ConnectionPoolMiddleware',
+    # Compression middleware
+    'swiftcourier_backend.middleware.CompressionMiddleware',
 ]
 
 ROOT_URLCONF = 'swiftcourier_backend.urls'
@@ -89,28 +94,19 @@ TEMPLATES = [
 WSGI_APPLICATION = 'swiftcourier_backend.wsgi.application'
 ASGI_APPLICATION = 'swiftcourier_backend.asgi.application'
 
-# Database - Enhanced Security
+# Database - Optimized for Render PostgreSQL
 DATABASES = {
     'default': dj_database_url.config(
-        default=os.getenv('DATABASE_URL', 'sqlite:///db.sqlite3'),
-        conn_max_age=600,
+        default=os.getenv('DATABASE_URL'),
+        conn_max_age=300,  # Reduced for Render's limits
         conn_health_checks=True,
     )
 }
 
-# Database security settings
-if 'sqlite' in DATABASES['default']['ENGINE']:
-    # SQLite optimizations for development
-    DATABASES['default']['OPTIONS'] = {
-        'init_command': 'PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL;',
-    }
-else:
-    # PostgreSQL security settings
+# PostgreSQL security settings for production
+if not DEBUG and DATABASES['default'].get('ENGINE', '').endswith('postgresql'):
     DATABASES['default']['OPTIONS'] = {
         'sslmode': 'require',
-        'sslrootcert': os.path.join(BASE_DIR, 'certs', 'ca.pem'),
-        'sslcert': os.path.join(BASE_DIR, 'certs', 'client-cert.pem'),
-        'sslkey': os.path.join(BASE_DIR, 'certs', 'client-key.pem'),
     }
 
 # Enhanced Cache Configuration - Works in Dev & Prod
@@ -120,28 +116,29 @@ CACHES = {
         'LOCATION': 'unique-snowflake',
         'TIMEOUT': 3600,
         'OPTIONS': {
-            'MAX_ENTRIES': 1000,
+            'MAX_ENTRIES': 5000,  # Increased from 1000
+            'CULL_FREQUENCY': 3,
         }
     },
     'session': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache', 
         'LOCATION': 'session-cache',
-        'TIMEOUT': 86400,
+        'TIMEOUT': 1800,  # Reduced from 86400 (30min sessions)
     },
     'api': {
         'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': 'api-cache',
-        'TIMEOUT': 1800,
+        'LOCATION': 'api-cache', 
+        'TIMEOUT': 300,  # Reduced from 1800 (5min API cache)
         'OPTIONS': {
-            'MAX_ENTRIES': 500,
+            'MAX_ENTRIES': 2000,  # Increased from 500
         }
     },
     'database': {
         'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
         'LOCATION': 'db-cache',
-        'TIMEOUT': 7200,
+        'TIMEOUT': 1800,  # Reduced from 7200
         'OPTIONS': {
-            'MAX_ENTRIES': 200,
+            'MAX_ENTRIES': 1000,  # Increased from 200
         }
     }
 }
@@ -512,6 +509,6 @@ if not DEBUG:
     # Disable debug toolbar in production
     INSTALLED_APPS = [app for app in INSTALLED_APPS if not app.startswith('debug_toolbar')]
 
-# Database connection optimization
-CONN_MAX_AGE = 60
+# Database connection optimization for Render
+CONN_MAX_AGE = 300  # Match dj_database_url setting
 CONN_HEALTH_CHECKS = True

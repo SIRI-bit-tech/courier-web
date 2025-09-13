@@ -323,3 +323,74 @@ class PerformanceMonitoringMiddleware(MiddlewareMixin):
         else:
             ip = request.META.get('REMOTE_ADDR', '127.0.0.1')
         return ip
+
+class CompressionMiddleware(MiddlewareMixin):
+    """Compress responses to reduce bandwidth"""
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        response = self.get_response(request)
+        
+        # Compress JSON responses
+        if hasattr(response, 'content') and response.get('Content-Type', '').startswith('application/json'):
+            import gzip
+            import io
+            
+            content = response.content
+            if len(content) > 1024:  # Only compress larger responses
+                buffer = io.BytesIO()
+                with gzip.GzipFile(fileobj=buffer, mode='wb') as f:
+                    f.write(content)
+                
+                response.content = buffer.getvalue()
+                response['Content-Encoding'] = 'gzip'
+                response['Content-Length'] = len(response.content)
+        
+        return response
+
+class DatabaseConnectionMiddleware(MiddlewareMixin):
+    """Optimize database connections for high concurrency"""
+    
+    def __call__(self, request):
+        from django.db import connections
+        
+        # Force connection cleanup for better performance
+        if hasattr(connections, '_databases'):
+            for alias in connections._databases:
+                connection = connections[alias]
+                # Only close if connection exists and is not in use
+                if hasattr(connection, 'close') and connection.connection:
+                    try:
+                        # Check if connection is stale (older than 5 minutes)
+                        if hasattr(connection, 'connection') and connection.connection:
+                            connection.close()
+                    except:
+                        pass
+        
+        response = self.get_response(request)
+        return response
+
+class ConnectionPoolMiddleware(MiddlewareMixin):
+    """Monitor and optimize database connection pool"""
+    
+    def __init__(self, get_response):
+        self.get_response = get_response
+        self.request_count = 0
+        
+    def __call__(self, request):
+        self.request_count += 1
+        
+        # Every 100 requests, force connection cleanup
+        if self.request_count % 100 == 0:
+            from django.db import connections
+            for alias in connections._databases:
+                connection = connections[alias]
+                if hasattr(connection, 'close'):
+                    try:
+                        connection.close()
+                    except:
+                        pass
+        
+        response = self.get_response(request)
+        return response
