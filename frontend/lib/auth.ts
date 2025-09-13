@@ -108,10 +108,10 @@ export interface CreatePackageData {
   sender_zip: string
 
   // Package details
-  weight: string
-  length: string
-  width: string
-  height: string
+  weight: number
+  length: number
+  width: number
+  height: number
   package_type: string
   description: string
 
@@ -336,32 +336,78 @@ class AuthService {
       if (error.response?.status === 400) {
         const validationErrors = error.response.data
         
-        // Log validation errors for debugging
-        if (isDevelopment) {
-          console.error('Validation errors:', validationErrors)
-        }
+        // Debug: Log the raw validation errors to understand the format
+        console.log('Raw validation errors:', validationErrors)
         
-        // Convert validation errors object to readable string
+        // Convert Django REST framework validation errors to readable format
         let errorMessage = "Please check the following fields:"
+        const errorMessages = []
         
         if (typeof validationErrors === 'object' && validationErrors !== null) {
-          const errorFields = Object.keys(validationErrors)
-          if (errorFields.length > 0) {
-            errorMessage += "\n" + errorFields.map(field => {
-              const fieldErrors = validationErrors[field]
-              const errorText = Array.isArray(fieldErrors) 
-                ? fieldErrors.join(", ") 
-                : String(fieldErrors)
-              return `${field}: ${errorText}`
-            }).join("\n")
+          // Handle Django REST framework field errors (arrays of strings)
+          for (const [field, errors] of Object.entries(validationErrors)) {
+            if (Array.isArray(errors) && errors.length > 0) {
+              // Check if errors contain field names instead of messages
+              const hasFieldNames = errors.some(error => 
+                typeof error === 'string' && 
+                (error.includes('sender_') || error.includes('recipient_'))
+              )
+              
+              if (hasFieldNames) {
+                // This is likely a Django model validation issue
+                // Provide generic field-specific messages
+                switch(field) {
+                  case 'sender_name':
+                    errorMessages.push("Sender name is required")
+                    break
+                  case 'sender_phone':
+                    errorMessages.push("Sender phone number is required")
+                    break
+                  case 'sender_address':
+                  case 'sender_city':
+                  case 'sender_state':
+                  case 'sender_zip':
+                    errorMessages.push("Complete sender address information is required")
+                    break
+                  case 'recipient_name':
+                    errorMessages.push("Recipient name is required")
+                    break
+                  case 'recipient_phone':
+                    errorMessages.push("Recipient phone number is required")
+                    break
+                  case 'recipient_address':
+                  case 'recipient_city':
+                  case 'recipient_state':
+                  case 'recipient_zip':
+                    errorMessages.push("Complete recipient address information is required")
+                    break
+                  case 'weight':
+                    errorMessages.push("Package weight is required and must be greater than 0")
+                    break
+                  case 'package_type':
+                    errorMessages.push("Package type is required")
+                    break
+                  default:
+                    errorMessages.push(`${field}: This field is required`)
+                }
+              } else {
+                // Normal validation errors
+                const fieldErrorMessage = errors.join(", ")
+                errorMessages.push(`${field}: ${fieldErrorMessage}`)
+              }
+            } else if (typeof errors === 'string') {
+              errorMessages.push(`${field}: ${errors}`)
+            }
+          }
+          
+          if (errorMessages.length > 0) {
+            errorMessage = errorMessages.join("\n")
           } else {
-            // If no specific fields, check for general error
+            // Fallback for non-field errors
             errorMessage = validationErrors.detail || 
                           validationErrors.message || 
-                          "Invalid data provided"
+                          "Invalid data provided. Please check all fields."
           }
-        } else if (typeof validationErrors === 'string') {
-          errorMessage = validationErrors
         }
         
         return {

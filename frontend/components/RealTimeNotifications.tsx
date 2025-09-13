@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { X, Package, CheckCircle, Truck, AlertCircle } from "lucide-react"
-import { Card, CardContent } from "@/frontend/components/ui/card"
-import { Button } from "@/frontend/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import { wsManager } from "@/lib/websocket"
 
 interface Notification {

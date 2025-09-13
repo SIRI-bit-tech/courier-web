@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { DashboardLayout } from "@/components/layouts/DashboardLayout"
 import { useRouter } from "next/navigation"
 import { authService } from "@/lib/auth"
+import { CreatePackageData } from "@/lib/auth"
 
 interface ShippingForm {
   // Package details
@@ -22,7 +23,7 @@ interface ShippingForm {
   packageType: string
   description: string
 
-  // Receiver details (corrected field names to match backend)
+  // Receiver details
   receiverName: string
   receiverPhone: string
   receiverAddress: string
@@ -81,10 +82,7 @@ export default function ShipPage() {
         return
       }
 
-      // Debug: Log user data to see what's available
-      console.log('Current user data:', currentUser)
-
-      // Validate that we have required sender information
+      // User data validation (no debug logging)
       const hasValidName = currentUser.first_name && currentUser.last_name && 
                           currentUser.first_name.trim() !== '' && 
                           currentUser.last_name.trim() !== ''
@@ -111,21 +109,27 @@ export default function ShipPage() {
         return
       }
 
-      const packageData = {
-        // Sender information from current user (with validation)
-        sender_name: `${currentUser.first_name.trim()} ${currentUser.last_name.trim()}`,
+      // Convert and validate numeric values
+      const weightNum = parseFloat(formData.weight) || 0.1
+      const lengthNum = parseFloat(formData.length) || 0
+      const widthNum = parseFloat(formData.width) || 0
+      const heightNum = parseFloat(formData.height) || 0
+      
+      const packageData: CreatePackageData = {
+        // Sender details from user profile
+        sender_name: `${currentUser.first_name} ${currentUser.last_name}`.trim(),
         sender_phone: currentUser.phone_number.trim(),
         sender_address: currentUser.address.trim(),
         sender_city: currentUser.city.trim(),
         sender_state: currentUser.state.trim(),
         sender_zip: currentUser.zip_code.trim(),
 
-        // Package details
-        weight: formData.weight,
-        length: formData.length,
-        width: formData.width,
-        height: formData.height,
-        package_type: formData.packageType,
+        // Package details - use converted numeric values
+        weight: weightNum,
+        length: lengthNum,
+        width: widthNum,
+        height: heightNum,
+        package_type: formData.packageType || 'package',
         description: formData.description,
 
         // Receiver details (corrected field names)
@@ -137,8 +141,26 @@ export default function ShipPage() {
         recipient_zip: formData.receiverZip,
       }
 
-      // Debug: Log the package data being sent
-      console.log('Package data being sent:', packageData)
+      // Validate required fields using numeric values
+      if (!formData.weight || isNaN(weightNum) || weightNum <= 0) {
+        setError("Package weight is required and must be greater than 0.")
+        return
+      }
+      
+      if (!packageData.package_type) {
+        setError("Package type is required.")
+        return
+      }
+      
+      if (!packageData.recipient_name || !packageData.recipient_name.trim()) {
+        setError("Recipient name is required.")
+        return
+      }
+      
+      if (!packageData.recipient_address || !packageData.recipient_address.trim()) {
+        setError("Recipient address is required.")
+        return
+      }
 
       const result = await authService.createPackage(packageData)
 
@@ -168,20 +190,26 @@ export default function ShipPage() {
           if (result.field_errors.recipient_phone) {
             errorMessages.push("Receiver phone number is required.")
           }
-          if (result.field_errors.recipient_address) {
-            errorMessages.push("Receiver address is required.")
+          if (result.field_errors.recipient_address || result.field_errors.recipient_city ||
+              result.field_errors.recipient_state || result.field_errors.recipient_zip) {
+            errorMessages.push("Complete receiver address information is required.")
           }
+          
+          // Handle package errors
           if (result.field_errors.weight) {
             errorMessages.push("Package weight is required.")
+          }
+          if (result.field_errors.package_type) {
+            errorMessages.push("Package type is required.")
           }
           
           if (errorMessages.length > 0) {
             setError(errorMessages.join(" "))
           } else {
-            setError(result.error || "Failed to create package")
+            setError(result.error || "Failed to create package. Please try again.")
           }
         } else {
-          setError(result.error || "Failed to create package")
+          setError(result.error || "Failed to create package. Please try again.")
         }
       }
     } catch (error: any) {

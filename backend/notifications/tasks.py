@@ -7,39 +7,15 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# Custom lazy celery task decorator to avoid circular imports
-class LazySharedTask:
-    """A lazy shared task decorator that only imports celery when the task is actually called"""
-    
-    def __init__(self, *args, **kwargs):
-        self.args = args
-        self.kwargs = kwargs
-        self._task = None
-        self._func = None
-    
-    def __call__(self, func):
-        self._func = func
-        
-        # Return a wrapper that will register the task when first called
-        def wrapper(*task_args, **task_kwargs):
-            if self._task is None:
-                # Import celery only when the task is actually executed
-                from celery import shared_task as _shared_task
-                # Apply the decorator to the function
-                self._task = _shared_task(*self.args, **self.kwargs)(func)
-            
-            # Call the actual task
-            return self._task(*task_args, **task_kwargs)
-        
-        # Copy function metadata
-        wrapper.__name__ = func.__name__
-        wrapper.__doc__ = func.__doc__
-        wrapper.__module__ = func.__module__
-        
-        return wrapper
-
-# Create the lazy shared task decorator
-shared_task = LazySharedTask
+# Import Celery shared_task
+try:
+    from celery import shared_task
+except ImportError:
+    # Fallback if Celery is not available
+    def shared_task(*args, **kwargs):
+        def decorator(func):
+            return func
+        return decorator
 
 @shared_task()
 def send_tracking_notification_email(package_id, notification_type='status_update'):

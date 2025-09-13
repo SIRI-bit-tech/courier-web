@@ -4,7 +4,26 @@ from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 from .models import TrackingEvent
 from packages.models import Package
-from notifications.tasks import send_tracking_notification_email
+
+# Import task function, but ensure Celery is ready
+def get_email_task():
+    """Get the email task function, ensuring Celery is loaded"""
+    try:
+        # Force import of Django settings to ensure Celery app is loaded
+        from django.conf import settings
+        # Import the celery app to ensure it's initialized
+        from swiftcourier_backend.celery import app
+        # Now import the task
+        from notifications.tasks import send_tracking_notification_email
+        return send_tracking_notification_email
+    except Exception as e:
+        # Fallback: return a dummy function that doesn't crash
+        def dummy_task(*args, **kwargs):
+            print(f"Email notification would be sent: {args}")
+        return dummy_task
+
+# Get the task function
+send_tracking_notification_email = get_email_task()
 
 @receiver(post_save, sender=TrackingEvent)
 def broadcast_tracking_update(sender, instance, created, **kwargs):
@@ -51,7 +70,15 @@ def broadcast_tracking_update(sender, instance, created, **kwargs):
             }
         )
         
-        send_tracking_notification_email.delay(instance.package.id)
+        # Send email notification
+        try:
+            if hasattr(send_tracking_notification_email, 'delay'):
+                send_tracking_notification_email.delay(instance.package.id)
+            else:
+                # Fallback to synchronous call
+                send_tracking_notification_email(instance.package.id)
+        except Exception as e:
+            print(f"Email notification failed: {e}")
 
 @receiver(post_save, sender=Package)
 def broadcast_package_update(sender, instance, created, **kwargs):
@@ -98,7 +125,15 @@ def broadcast_package_update(sender, instance, created, **kwargs):
             }
         )
         
-        send_tracking_notification_email.delay(instance.id)
+        # Send email notification
+        try:
+            if hasattr(send_tracking_notification_email, 'delay'):
+                send_tracking_notification_email.delay(instance.id)
+            else:
+                # Fallback to synchronous call
+                send_tracking_notification_email(instance.id)
+        except Exception as e:
+            print(f"Email notification failed: {e}")
     elif created:
         # Send to user's notifications group for new package
         channel_layer = get_channel_layer()
@@ -119,4 +154,12 @@ def broadcast_package_update(sender, instance, created, **kwargs):
             }
         )
         
-        send_tracking_notification_email.delay(instance.id)
+        # Send email notification for new package
+        try:
+            if hasattr(send_tracking_notification_email, 'delay'):
+                send_tracking_notification_email.delay(instance.id)
+            else:
+                # Fallback to synchronous call
+                send_tracking_notification_email(instance.id)
+        except Exception as e:
+            print(f"Email notification failed: {e}")
