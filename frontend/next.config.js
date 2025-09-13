@@ -12,32 +12,18 @@ const nextConfig = {
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
   },
 
-  // Security Headers
+  // Enhanced Caching Headers
   async headers() {
     return [
       {
         source: '/(.*)',
         headers: [
-          {
-            key: 'X-Frame-Options',
-            value: 'DENY'
-          },
-          {
-            key: 'X-Content-Type-Options',
-            value: 'nosniff'
-          },
-          {
-            key: 'Referrer-Policy',
-            value: 'strict-origin-when-cross-origin'
-          },
-          {
-            key: 'Permissions-Policy',
-            value: 'camera=(), microphone=(), geolocation=(self), payment=()'
-          },
-          {
-            key: 'X-XSS-Protection',
-            value: '1; mode=block'
-          },
+          // Security headers (existing)
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(self), payment=()' },
+          { key: 'X-XSS-Protection', value: '1; mode=block' },
           {
             key: 'Content-Security-Policy',
             value: `
@@ -56,16 +42,18 @@ const nextConfig = {
         ]
       },
       {
+        source: '/_next/static/(.*)',
+        headers: [
+          // Static assets - long cache
+          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+        ]
+      },
+      {
         source: '/api/(.*)',
         headers: [
-          {
-            key: 'X-Frame-Options',
-            value: 'DENY'
-          },
-          {
-            key: 'X-Content-Type-Options',
-            value: 'nosniff'
-          }
+          // API responses - short cache
+          { key: 'Cache-Control', value: 'private, max-age=300' }, // 5 minutes
+          { key: 'Vary', value: 'Authorization' },
         ]
       }
     ]
@@ -75,7 +63,7 @@ const nextConfig = {
   env: {
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
     NEXT_PUBLIC_WS_URL: process.env.NEXT_PUBLIC_WS_URL,
-    // NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
+    NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
   },
 
   // Webpack configuration for security
@@ -115,7 +103,7 @@ const nextConfig = {
   generateEtags: false,
 
   // Security for static files
-  assetPrefix: process.env.NODE_ENV === 'production' ? '' : '',
+  assetPrefix: process.env.NODE_ENV === "production" ? '' : '',
 }
 
 module.exports = nextConfig

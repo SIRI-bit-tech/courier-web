@@ -52,8 +52,8 @@ INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 
 # Security Middleware - Enhanced
 MIDDLEWARE = [
-    'django.middleware.security.SecurityMiddleware',
     'corsheaders.middleware.CorsMiddleware',
+    'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -63,6 +63,9 @@ MIDDLEWARE = [
     # Custom security middleware
     'swiftcourier_backend.middleware.SecurityHeadersMiddleware',
     'swiftcourier_backend.middleware.RateLimitMiddleware',
+    'swiftcourier_backend.middleware.InputValidationMiddleware',
+    # Enhanced rate limiting
+    'swiftcourier_backend.middleware.EnhancedRateLimitMiddleware',
 ]
 
 ROOT_URLCONF = 'swiftcourier_backend.urls'
@@ -110,41 +113,88 @@ else:
         'sslkey': os.path.join(BASE_DIR, 'certs', 'client-key.pem'),
     }
 
-# Cache configuration - Redis for security
+# Enhanced Cache Configuration - Works in Dev & Prod
 CACHES = {
     'default': {
         'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
         'LOCATION': 'unique-snowflake',
+        'TIMEOUT': 3600,
+        'OPTIONS': {
+            'MAX_ENTRIES': 1000,
+        }
     },
     'session': {
         'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
         'LOCATION': 'session-cache',
+        'TIMEOUT': 86400,
+    },
+    'api': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'api-cache',
+        'TIMEOUT': 1800,
+        'OPTIONS': {
+            'MAX_ENTRIES': 500,
+        }
+    },
+    'database': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'db-cache',
+        'TIMEOUT': 7200,
+        'OPTIONS': {
+            'MAX_ENTRIES': 200,
+        }
     }
 }
 
-# Redis cache (enable in production)
-REDIS_URL = os.getenv('REDIS_URL')
-if REDIS_URL:
+# Redis Cache Configuration (Auto-detects environment)
+REDIS_URL = os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/0')
+REDIS_AVAILABLE = False
+
+try:
+    import redis
+    r = redis.Redis.from_url(REDIS_URL)
+    r.ping()  # Test connection
+    REDIS_AVAILABLE = True
+except (ImportError, redis.ConnectionError):
+    REDIS_AVAILABLE = False
+
+if REDIS_AVAILABLE:
     CACHES.update({
         'default': {
             'BACKEND': 'django.core.cache.backends.redis.RedisCache',
             'LOCATION': REDIS_URL,
-            'OPTIONS': {
-                'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-                'CONNECTION_POOL_KWARGS': {
-                    'max_connections': 20,
-                    'decode_responses': True,
-                }
-            }
+            'KEY_PREFIX': 'swiftcourier',
+            'TIMEOUT': 300 if not DEBUG else 60,
         },
         'session': {
             'BACKEND': 'django.core.cache.backends.redis.RedisCache',
-            'LOCATION': REDIS_URL,
-            'OPTIONS': {
-                'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-            }
+            'LOCATION': f"{REDIS_URL}/1",
+            'KEY_PREFIX': 'session',
+            'TIMEOUT': 86400,
+        },
+        'api': {
+            'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+            'LOCATION': f"{REDIS_URL}/2",
+            'KEY_PREFIX': 'api',
+            'TIMEOUT': 600 if not DEBUG else 120,
+        },
+        'database': {
+            'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+            'LOCATION': f"{REDIS_URL}/3",
+            'KEY_PREFIX': 'db',
+            'TIMEOUT': 3600 if not DEBUG else 300,
         }
     })
+
+# Cache settings for different environments
+if DEBUG:
+    # Development cache settings
+    CACHE_MIDDLEWARE_SECONDS = 0  # Disable cache middleware in dev
+    CACHE_MIDDLEWARE_KEY_PREFIX = 'swiftcourier_dev'
+else:
+    # Production cache settings
+    CACHE_MIDDLEWARE_SECONDS = 300  # 5 minutes
+    CACHE_MIDDLEWARE_KEY_PREFIX = 'swiftcourier_prod'
 
 # Password validation - Relaxed for development
 if DEBUG:
@@ -340,6 +390,9 @@ CHANNEL_LAYERS = {
     },
 }
 
+# Google Maps API
+GOOGLE_MAPS_API_KEY = os.getenv('GOOGLE_MAPS_API_KEY')
+
 # Email Configuration - Enhanced Security
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
@@ -350,7 +403,7 @@ EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER)
 
-# Frontend URL
+# Frontend URL for email links
 FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:3000')
 
 # SMS Configuration (Twilio) - Enhanced Security
@@ -360,6 +413,34 @@ TWILIO_PHONE_NUMBER = os.getenv('TWILIO_PHONE_NUMBER')
 
 # Custom User Model
 AUTH_USER_MODEL = 'accounts.User'
+
+# Celery Configuration
+CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', REDIS_URL.replace('/0', '/1'))
+CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', REDIS_URL.replace('/0', '/2'))
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = TIME_ZONE
+
+# Monitoring and Performance Settings
+if not DEBUG:
+    # Django Debug Toolbar (only in development)
+    INSTALLED_APPS = [app for app in INSTALLED_APPS if not app.startswith('debug_toolbar')]
+    
+    # Performance monitoring
+    MIDDLEWARE.insert(0, 'swiftcourier_backend.middleware.PerformanceMonitoringMiddleware')
+    
+    # Enhanced logging for production
+    LOGGING['handlers']['file']['level'] = 'WARNING'
+    LOGGING['handlers']['security_file']['level'] = 'WARNING'
+    
+    # Add performance logging
+    LOGGING['loggers']['django.request']['level'] = 'WARNING'
+    LOGGING['loggers']['swiftcourier.performance'] = {
+        'handlers': ['file'],
+        'level': 'INFO',
+        'propagate': False,
+    }
 
 # Logging configuration - Enhanced Security
 LOGGING = {
