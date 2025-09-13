@@ -22,7 +22,7 @@ interface ShippingForm {
   packageType: string
   description: string
 
-  // Receiver details
+  // Receiver details (corrected field names to match backend)
   receiverName: string
   receiverPhone: string
   receiverAddress: string
@@ -73,29 +73,119 @@ export default function ShipPage() {
     setError("")
 
     try {
+      // Get current user information for sender details
+      const currentUser = await authService.getCurrentUser()
+      
+      if (!currentUser) {
+        setError("User authentication required. Please log in again.")
+        return
+      }
+
+      // Debug: Log user data to see what's available
+      console.log('Current user data:', currentUser)
+
+      // Validate that we have required sender information
+      const hasValidName = currentUser.first_name && currentUser.last_name && 
+                          currentUser.first_name.trim() !== '' && 
+                          currentUser.last_name.trim() !== ''
+      
+      const hasValidAddress = currentUser.address && currentUser.city && 
+                             currentUser.state && currentUser.zip_code &&
+                             currentUser.address.trim() !== '' && 
+                             currentUser.city.trim() !== '' &&
+                             currentUser.state.trim() !== '' &&
+                             currentUser.zip_code.trim() !== ''
+
+      if (!hasValidName) {
+        setError("Your profile is missing name information. Please update your profile with your first and last name.")
+        return
+      }
+
+      if (!hasValidAddress) {
+        setError("Your profile is missing address information. Please update your profile with your complete address.")
+        return
+      }
+
+      if (!currentUser.phone_number || currentUser.phone_number.trim() === '') {
+        setError("Your profile is missing phone number. Please update your profile with your phone number.")
+        return
+      }
+
       const packageData = {
+        // Sender information from current user (with validation)
+        sender_name: `${currentUser.first_name.trim()} ${currentUser.last_name.trim()}`,
+        sender_phone: currentUser.phone_number.trim(),
+        sender_address: currentUser.address.trim(),
+        sender_city: currentUser.city.trim(),
+        sender_state: currentUser.state.trim(),
+        sender_zip: currentUser.zip_code.trim(),
+
+        // Package details
         weight: formData.weight,
         length: formData.length,
         width: formData.width,
         height: formData.height,
         package_type: formData.packageType,
         description: formData.description,
-        receiver_name: formData.receiverName,
-        receiver_phone: formData.receiverPhone,
-        receiver_address: formData.receiverAddress,
-        receiver_city: formData.receiverCity,
-        receiver_state: formData.receiverState,
-        receiver_zip_code: formData.receiverZip,
+
+        // Receiver details (corrected field names)
+        recipient_name: formData.receiverName,
+        recipient_phone: formData.receiverPhone,
+        recipient_address: formData.receiverAddress,
+        recipient_city: formData.receiverCity,
+        recipient_state: formData.receiverState,
+        recipient_zip: formData.receiverZip,
       }
+
+      // Debug: Log the package data being sent
+      console.log('Package data being sent:', packageData)
 
       const result = await authService.createPackage(packageData)
 
       if (result.success) {
         router.push(`/track/${result.package.tracking_number}`)
       } else {
-        setError(result.error || "Failed to create package")
+        // Handle field errors better
+        if (result.field_errors) {
+          const errorMessages = []
+          
+          // Handle sender errors
+          if (result.field_errors.sender_name) {
+            errorMessages.push("Please update your profile with your full name.")
+          }
+          if (result.field_errors.sender_phone) {
+            errorMessages.push("Please update your profile with your phone number.")
+          }
+          if (result.field_errors.sender_address || result.field_errors.sender_city || 
+              result.field_errors.sender_state || result.field_errors.sender_zip) {
+            errorMessages.push("Please update your profile with your complete address.")
+          }
+          
+          // Handle receiver errors
+          if (result.field_errors.recipient_name) {
+            errorMessages.push("Receiver name is required.")
+          }
+          if (result.field_errors.recipient_phone) {
+            errorMessages.push("Receiver phone number is required.")
+          }
+          if (result.field_errors.recipient_address) {
+            errorMessages.push("Receiver address is required.")
+          }
+          if (result.field_errors.weight) {
+            errorMessages.push("Package weight is required.")
+          }
+          
+          if (errorMessages.length > 0) {
+            setError(errorMessages.join(" "))
+          } else {
+            setError(result.error || "Failed to create package")
+          }
+        } else {
+          setError(result.error || "Failed to create package")
+        }
       }
-    } catch (error) {
+    } catch (error: any) {
+      console.error("Package creation error:", error)
       setError("Failed to create package. Please try again.")
     } finally {
       setLoading(false)

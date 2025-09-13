@@ -1,68 +1,138 @@
 import { authService } from "./auth"
 
-const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000"
+// Production-ready WebSocket URL construction
+const getWebSocketUrl = () => {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'
+  const isSecure = apiUrl.startsWith('https')
+  const protocol = isSecure ? 'wss' : 'ws'
+  
+  // Extract host without protocol
+  const host = apiUrl.replace(/^https?:\/\//, '')
+  
+  return `${protocol}://${host}`
+}
 
+// Production-ready WebSocket with better error handling
 export class WebSocketManager {
   private ws: WebSocket | null = null
   private reconnectAttempts = 0
   private maxReconnectAttempts = 5
-  private reconnectInterval = 3000
-  private listeners: Map<string, Function[]> = new Map()
+  private reconnectDelay = 1000
+  private url: string
+  private eventListeners: { [key: string]: Function[] } = {}
+  private isDevelopment = process.env.NODE_ENV === 'development'
 
-  connect(endpoint: string) {
-    const token = authService.getToken()
-    const wsUrl = `${WS_URL}${endpoint}${token ? `?token=${token}` : ""}`
+  constructor(url: string) {
+    // Dynamic WebSocket URL for production
+    const baseUrl = getWebSocketUrl()
+    this.url = `${baseUrl}${url}`
+  }
+
+  private buildWebSocketUrl(path: string): string {
+    const baseUrl = getWebSocketUrl()
+    return `${baseUrl}${path}`
+  }
+
+  connect(path?: string) {
+    if (path) {
+      this.url = this.buildWebSocketUrl(path)
+    }
 
     try {
-      this.ws = new WebSocket(wsUrl)
+      // Get token with better error handling
+      const token = this.getAuthToken()
+      const urlWithToken = token ? `${this.url}?token=${encodeURIComponent(token)}` : this.url
+      
+      this.ws = new WebSocket(urlWithToken)
+      this.setupEventHandlers()
+    } catch (error) {
+      // Don't retry on setup errors
+      this.emit('error', error)
+    }
+  }
 
-      this.ws.onopen = () => {
-        console.log("[v0] WebSocket connected to:", endpoint)
+  private setupEventHandlers() {
+    if (!this.ws) return
+
+    this.ws.onopen = (event) => {
         this.reconnectAttempts = 0
-        this.emit("connected", { endpoint })
+      this.emit('connected', event)
       }
 
       this.ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data)
-          this.emit("message", data)
-
-          // Emit specific event types
-          if (data.type) {
             this.emit(data.type, data)
-          }
         } catch (error) {
-          console.error("[v0] WebSocket message parse error:", error)
+        // Silent error handling for malformed messages
         }
       }
 
       this.ws.onclose = (event) => {
-        console.log("[v0] WebSocket disconnected:", event.code, event.reason)
-        this.emit("disconnected", { code: event.code, reason: event.reason })
-
-        // Attempt reconnection if not intentionally closed
-        if (event.code !== 1000 && this.reconnectAttempts < this.maxReconnectAttempts) {
-          setTimeout(() => {
-            this.reconnectAttempts++
-            console.log(`[v0] Reconnecting... Attempt ${this.reconnectAttempts}`)
-            this.connect(endpoint)
-          }, this.reconnectInterval)
+      // Only reconnect on specific error codes
+      if (event.code === 1006 || event.code === 1008 || event.code === 1011) {
+        // These are recoverable errors
+        this.handleReconnect()
+      } else {
+        // Don't reconnect for normal closures (1000) or policy violations (1008)
+        this.emit('disconnected', event)
         }
       }
 
       this.ws.onerror = (error) => {
-        console.error("[v0] WebSocket error:", error)
-        this.emit("error", error)
-      }
+      // Emit error but don't log to console to reduce noise
+      this.emit('error', { type: 'websocket_error', event: error })
+    }
+  }
+
+  private handleReconnect() {
+    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+      this.emit('max_reconnect_attempts_reached', { attempts: this.reconnectAttempts })
+      return
+    }
+
+    this.reconnectAttempts++
+    const delay = Math.min(this.reconnectDelay * this.reconnectAttempts, 30000) // Cap at 30s
+    
+    setTimeout(() => {
+      this.connect()
+    }, delay)
+  }
+
+  private getAuthToken(): string | null {
+    // Get token from localStorage or wherever you store it
+    if (typeof window !== 'undefined') {
+      try {
+        // Try different token storage keys
+        const token = localStorage.getItem('swiftcourier_token') || 
+                     localStorage.getItem('token') || 
+                     sessionStorage.getItem('swiftcourier_token')
+        
+        return token
     } catch (error) {
-      console.error("[v0] WebSocket connection failed:", error)
-      this.emit("error", error)
+        return null
+      }
+    }
+    return null
+  }
+
+  // Event system
+  on(event: string, callback: Function) {
+    if (!this.eventListeners[event]) {
+      this.eventListeners[event] = []
+    }
+    this.eventListeners[event].push(callback)
+  }
+
+  private emit(event: string, data: any) {
+    if (this.eventListeners[event]) {
+      this.eventListeners[event].forEach(callback => callback(data))
     }
   }
 
   disconnect() {
     if (this.ws) {
-      this.ws.close(1000, "Intentional disconnect")
+      this.ws.close()
       this.ws = null
     }
   }
@@ -70,38 +140,10 @@ export class WebSocketManager {
   send(data: any) {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(data))
-    } else {
-      console.warn("[v0] WebSocket not connected, cannot send message")
     }
-  }
-
-  on(event: string, callback: Function) {
-    if (!this.listeners.has(event)) {
-      this.listeners.set(event, [])
-    }
-    this.listeners.get(event)!.push(callback)
-  }
-
-  off(event: string, callback: Function) {
-    const eventListeners = this.listeners.get(event)
-    if (eventListeners) {
-      const index = eventListeners.indexOf(callback)
-      if (index > -1) {
-        eventListeners.splice(index, 1)
-      }
-    }
-  }
-
-  private emit(event: string, data?: any) {
-    const eventListeners = this.listeners.get(event)
-    if (eventListeners) {
-      eventListeners.forEach((callback) => callback(data))
-    }
-  }
-
-  isConnected() {
-    return this.ws?.readyState === WebSocket.OPEN
   }
 }
 
-export const wsManager = new WebSocketManager()
+// Singleton pattern for consistent WebSocket management
+const wsManager = new WebSocketManager('/ws/notifications/')
+export { wsManager }

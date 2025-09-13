@@ -1,7 +1,11 @@
 import axios, { InternalAxiosRequestConfig, AxiosResponse } from "axios"
 
-// ✅ PRODUCTION-READY: Use environment variable for API URL
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"
+// ✅ Works for both development and production
+const API_URL = process.env.NEXT_PUBLIC_API_URL || (
+  typeof window !== 'undefined' && window.location.protocol === 'https:' 
+    ? `https://${window.location.host.replace(':3000', ':8000')}`  // Production with SSL
+    : "http://localhost:8000"  // Development fallback
+)
 const isDevelopment = process.env.NODE_ENV === 'development'
 
 // ✅ PRODUCTION-READY: Enhanced axios configuration
@@ -95,18 +99,29 @@ export interface Package {
 }
 
 export interface CreatePackageData {
+  // Sender information (required by backend)
+  sender_name: string
+  sender_phone: string
+  sender_address: string
+  sender_city: string
+  sender_state: string
+  sender_zip: string
+
+  // Package details
   weight: string
   length: string
   width: string
   height: string
   package_type: string
   description: string
-  receiver_name: string
-  receiver_phone: string
-  receiver_address: string
-  receiver_city: string
-  receiver_state: string
-  receiver_zip_code: string
+
+  // Receiver details (corrected field names)
+  recipient_name: string
+  recipient_phone: string
+  recipient_address: string
+  recipient_city: string
+  recipient_state: string
+  recipient_zip: string
 }
 
 class AuthService {
@@ -252,7 +267,7 @@ class AuthService {
       
       // If unauthorized, clear tokens
       if (error.response?.status === 401) {
-        this.logout()
+      this.logout()
       }
       
       return null
@@ -293,7 +308,7 @@ class AuthService {
     }
   }
 
-  // ✅ PRODUCTION-READY: Clean package creation
+  // ✅ PRODUCTION-READY: Enhanced createPackage with better error handling
   async createPackage(packageData: CreatePackageData) {
     const token = this.getToken()
     if (!token) {
@@ -307,16 +322,100 @@ class AuthService {
       
       return { success: true, package: response.data }
     } catch (error: any) {
-      // Log errors only in development
+      // Enhanced error logging
       if (isDevelopment) {
-        console.error('Package creation failed:', error.response?.data)
+        console.error('Package creation error details:', {
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          data: error.response?.data,
+          fullError: error
+        })
       }
+      
+      // Handle validation errors properly
+      if (error.response?.status === 400) {
+        const validationErrors = error.response.data
+        
+        // Log validation errors for debugging
+        if (isDevelopment) {
+          console.error('Validation errors:', validationErrors)
+        }
+        
+        // Convert validation errors object to readable string
+        let errorMessage = "Please check the following fields:"
+        
+        if (typeof validationErrors === 'object' && validationErrors !== null) {
+          const errorFields = Object.keys(validationErrors)
+          if (errorFields.length > 0) {
+            errorMessage += "\n" + errorFields.map(field => {
+              const fieldErrors = validationErrors[field]
+              const errorText = Array.isArray(fieldErrors) 
+                ? fieldErrors.join(", ") 
+                : String(fieldErrors)
+              return `${field}: ${errorText}`
+            }).join("\n")
+          } else {
+            // If no specific fields, check for general error
+            errorMessage = validationErrors.detail || 
+                          validationErrors.message || 
+                          "Invalid data provided"
+          }
+        } else if (typeof validationErrors === 'string') {
+          errorMessage = validationErrors
+        }
+        
+        return {
+          success: false,
+          error: errorMessage,
+          field_errors: validationErrors
+        }
+      }
+      
+      // Handle authentication errors
+      if (error.response?.status === 401) {
+        return {
+          success: false,
+          error: "Authentication failed. Please log in again.",
+          field_errors: null
+        }
+      }
+      
+      // Handle permission errors
+      if (error.response?.status === 403) {
+        return {
+          success: false,
+          error: "You don't have permission to create packages.",
+          field_errors: null
+        }
+      }
+      
+      // Handle server errors
+      if (error.response?.status >= 500) {
+        return {
+          success: false,
+          error: "Server error. Please try again later.",
+          field_errors: null
+        }
+      }
+      
+      // Handle network errors
+      if (!error.response) {
+        return {
+          success: false,
+          error: "Network error. Please check your internet connection.",
+          field_errors: null
+        }
+      }
+      
+      // Fallback error handling
+      const fallbackError = error.response?.data?.detail || 
+                           error.response?.data?.message || 
+                           error.message || 
+                           "Package creation failed. Please try again."
       
       return {
         success: false,
-        error: error.response?.data?.detail || 
-               error.response?.data?.message || 
-               "Package creation failed. Please try again.",
+        error: typeof fallbackError === 'string' ? fallbackError : "Package creation failed. Please try again.",
         field_errors: error.response?.data
       }
     }
@@ -398,7 +497,7 @@ class AuthService {
       
       // If refresh token is invalid, logout
       if (error.response?.status === 401) {
-        this.logout()
+      this.logout()
       }
       
       return false

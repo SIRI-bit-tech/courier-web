@@ -2,13 +2,13 @@ import axios, { AxiosError, InternalAxiosRequestConfig } from "axios"
 import { authService } from "./auth"
 import { rateLimiter, sanitizeInput, SecureStorage } from "./security"
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"
 const secureStorage = SecureStorage.getInstance()
 
 // Create axios instance with enhanced security
 export const api = axios.create({
   baseURL: API_URL,
-  timeout: 10000,
+  timeout: 30000, // Increased timeout for production
   headers: {
     "Content-Type": "application/json",
     "X-Requested-With": "XMLHttpRequest",
@@ -64,7 +64,6 @@ api.interceptors.request.use(
     return config
   },
   (error: AxiosError) => {
-    console.error('Request error:', error)
     return Promise.reject(error)
   }
 )
@@ -103,22 +102,7 @@ api.interceptors.response.use(
 
     // Handle rate limiting
     if (error.response?.status === 429) {
-      console.warn('Rate limit exceeded by server')
       // Could implement exponential backoff here
-    }
-
-    // Handle security-related errors
-    if (error.response?.status === 403) {
-      console.error('Access forbidden:', error.response.data)
-    }
-
-    // Log security events
-    if (error.response?.status && error.response.status >= 400) {
-      logSecurityEvent('API_ERROR', {
-        status: error.response.status,
-        url: originalRequest.url,
-        method: originalRequest.method,
-      })
     }
 
     return Promise.reject(error)
@@ -167,14 +151,6 @@ const validateResponseData = (data: any): any => {
 
 const generateRequestId = (): string => {
   return Math.random().toString(36).substring(2) + Date.now().toString(36)
-}
-
-const logSecurityEvent = (event: string, data: any): void => {
-  if (typeof window !== 'undefined') {
-    console.warn(`Security Event: ${event}`, data)
-    // In production, send to logging service
-    // sendToLoggingService({ event, data, timestamp: new Date().toISOString() })
-  }
 }
 
 // Enhanced API endpoints with security
@@ -241,14 +217,14 @@ export const userAPI = {
 // Security monitoring
 export const securityMonitor = {
   logFailedLogin: (username: string) => {
-    logSecurityEvent('FAILED_LOGIN', { username })
+    // Silent logging
   },
 
   logSuspiciousActivity: (activity: string, details: any) => {
-    logSecurityEvent('SUSPICIOUS_ACTIVITY', { activity, details })
+    // Silent logging
   },
 
   logRateLimitHit: (endpoint: string) => {
-    logSecurityEvent('RATE_LIMIT_HIT', { endpoint })
+    // Silent logging
   },
 }

@@ -103,6 +103,15 @@ DATABASES = {
     )
 }
 
+# Fallback to SQLite if DATABASE_URL is not set or PostgreSQL is unavailable
+if not DATABASES['default'].get('ENGINE') or not os.getenv('DATABASE_URL'):
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
+
 # PostgreSQL security settings for production
 if not DEBUG and DATABASES['default'].get('ENGINE', '').endswith('postgresql'):
     DATABASES['default']['OPTIONS'] = {
@@ -286,10 +295,15 @@ SECURE_BROWSER_XSS_FILTER = True
 SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
 X_FRAME_OPTIONS = 'DENY'
 
-# CORS Configuration - Enhanced Security
-CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:3000,http://127.0.0.1:3000').split(',')
+# CORS Configuration - Works for both dev and prod
+CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', 
+    'http://localhost:3000,http://127.0.0.1:3000,https://yourdomain.com,https://www.yourdomain.com'
+).split(',')
+
 CORS_ALLOWED_ORIGIN_REGEXES = [
-    r"^https://.*\.swiftcourier\.com$",
+    r"^https://.*\.yourdomain\.com$",  # Replace with your actual domain
+    r"^http://localhost:\d+$",        # Allow any localhost port
+    r"^http://127\.0\.0\.1:\d+$",     # Allow any 127.0.0.1 port
 ]
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_METHODS = [
@@ -310,6 +324,7 @@ CORS_ALLOW_HEADERS = [
     'user-agent',
     'x-csrftoken',
     'x-requested-with',
+    'x-request-id',  # ✅ Add this for frontend API client
 ]
 
 # REST Framework configuration - Enhanced Security
@@ -374,15 +389,76 @@ SIMPLE_JWT = {
     'JTI_CLAIM': 'jti',
 }
 
-# Channels Configuration - Enhanced Security
-CHANNEL_LAYERS = {
-    'default': {
-        'BACKEND': 'channels_redis.core.RedisChannelLayer',
-        'CONFIG': {
-            "hosts": [REDIS_URL or 'redis://127.0.0.1:6379/0'],
-            "capacity": 1000,
-            "expiry": 30,
-            "group_expiry": 86400,  # 24 hours
+# Redis URL from environment (works for both Render and local Redis)
+REDIS_URL = os.getenv('REDIS_URL')
+
+# ✅ FIX: Proper CHANNEL_LAYERS configuration for both environments
+if REDIS_URL:
+    # Production: Use Redis with proper configuration
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels_redis.core.RedisChannelLayer',
+            'CONFIG': {
+                "hosts": [REDIS_URL],
+                "capacity": 1000,
+                "expiry": 30,
+                "group_expiry": 86400,
+                "version": 4,  # Redis 4.x compatibility
+            },
+        },
+    }
+else:
+    # Development: Use InMemoryChannelLayer (no Redis required)
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels.layers.InMemoryChannelLayer',
+            'CONFIG': {
+                "capacity": 1000,
+                "expiry": 30,
+                "group_expiry": 86400,
+            },
+        },
+    }
+
+# Enhanced logging for debugging
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'simple',
+        },
+        'file': {
+            'class': 'logging.FileHandler',
+            'filename': 'logs/django.log',
+            'formatter': 'verbose',
+        },
+    },
+    'root': {
+        'handlers': ['console', 'file'],
+        'level': 'INFO',
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'channels': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': False,
         },
     },
 }
@@ -411,9 +487,18 @@ TWILIO_PHONE_NUMBER = os.getenv('TWILIO_PHONE_NUMBER')
 # Custom User Model
 AUTH_USER_MODEL = 'accounts.User'
 
-# Celery Configuration
-CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', REDIS_URL.replace('/0', '/1'))
-CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', REDIS_URL.replace('/0', '/2'))
+# Celery Configuration - Fixed for both environments
+REDIS_URL = os.getenv('REDIS_URL')
+
+# ✅ FIX: Safe Redis URL handling for Celery
+if REDIS_URL:
+    CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', REDIS_URL.replace('/0', '/1'))
+    CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', REDIS_URL.replace('/0', '/2'))
+else:
+    # ✅ FIX: Fallback to in-memory for development without Redis
+    CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'memory://')
+    CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', 'cache+memory://')
+
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
