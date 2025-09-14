@@ -53,11 +53,11 @@ USER appuser
 
 # Health check for Render
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8000/health/ || exit 1
+    CMD curl -f http://localhost:$PORT/health/ || exit 1
 
 # Expose port
 EXPOSE 8000
 
-# Set entrypoint and default command
+# Set entrypoint and default command with PORT support
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
-CMD ["daphne", "-b", "0.0.0.0", "-p", "8000", "swiftcourier_backend.asgi:application"]
+CMD ["daphne", "-b", "0.0.0.0", "-p", "$PORT", "swiftcourier_backend.asgi:application"]

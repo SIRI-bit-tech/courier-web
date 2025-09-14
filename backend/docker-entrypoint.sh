@@ -78,17 +78,17 @@ fi
 
 echo -e "${GREEN}🎉 SwiftCourier Backend is ready!${NC}"
 
-# Execute the main command
+# Execute the main command with PORT support
 if [ "$1" = "runserver" ]; then
     echo -e "${GREEN}🌐 Starting Django development server...${NC}"
-    exec python manage.py runserver 0.0.0.0:8000
+    exec python manage.py runserver 0.0.0.0:$PORT
 elif [ "$1" = "daphne" ]; then
     echo -e "${GREEN}⚡ Starting Daphne ASGI server...${NC}"
-    exec daphne -b 0.0.0.0 -p 8000 swiftcourier_backend.asgi:application
+    exec daphne -b 0.0.0.0 -p $PORT swiftcourier_backend.asgi:application
 elif [ "$1" = "gunicorn" ]; then
     echo -e "${GREEN}🐴 Starting Gunicorn WSGI server...${NC}"
     exec gunicorn swiftcourier_backend.wsgi:application \
-        --bind 0.0.0.0:8000 \
+        --bind 0.0.0.0:$PORT \
         --workers 2 \
         --threads 4 \
         --worker-class gthread \
