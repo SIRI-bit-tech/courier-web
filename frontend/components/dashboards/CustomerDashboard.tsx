@@ -13,14 +13,18 @@ import { packageAPI } from "@/lib/api"
 import { wsManager } from "@/lib/websocket"
 
 interface Package {
-  id: number
-  tracking_number: string
-  recipient_name: string
-  recipient_address: string
-  status: string
-  created_at: string
-  estimated_delivery: string
-  shipping_cost: string
+    id: number
+    tracking_number: string
+    recipient_name: string
+    recipient_address: string
+    status: string
+    created_at: string
+    estimated_delivery: string
+    shipping_cost: string
+    current_location?: string
+    latitude?: number
+    longitude?: number
+    last_updated?: string
 }
 
 export function CustomerDashboard() {
@@ -32,9 +36,9 @@ export function CustomerDashboard() {
 
   useEffect(() => {
     fetchPackages()
-    // Add delay before WebSocket connection to avoid race conditions
+    
     const timer = setTimeout(() => {
-    setupWebSocketConnection()
+      setupWebSocketConnection()
     }, 1000)
 
     return () => {
@@ -49,12 +53,6 @@ export function CustomerDashboard() {
       setLoading(true)
       const response = await packageAPI.list()
       
-      // console.log('API Response:', response) // Debug logging
-      // console.log('Response type:', typeof response)
-      // console.log('Response.data type:', typeof response?.data)
-      // console.log('Is response.data array?', Array.isArray(response?.data))
-      
-      // Simple and robust data handling
       let packageData: Package[] = []
       
       if (response?.data) {
@@ -62,13 +60,20 @@ export function CustomerDashboard() {
           packageData = response.data
         } else if (response.data.results && Array.isArray(response.data.results)) {
           packageData = response.data.results
-        } else if (typeof response.data === 'object' && response.data.id) {
-          // If it's a single object with an id, wrap it in an array
-          packageData = [response.data]
+        } else if (typeof response.data === 'object' && response.data !== null) {
+          const keys = Object.keys(response.data)
+          const numericKeys = keys.filter(key => !isNaN(Number(key)))
+          
+          if (numericKeys.length > 0) {
+            packageData = keys
+              .sort((a, b) => Number(a) - Number(b))
+              .map(key => response.data[key])
+          } else {
+            packageData = []
+          }
         }
       }
       
-      // Additional validation - filter out invalid packages
       const validPackages = packageData.filter(pkg => 
         pkg && 
         typeof pkg === 'object' && 
@@ -77,28 +82,61 @@ export function CustomerDashboard() {
         typeof pkg.tracking_number === 'string'
       )
       
-      // console.log('Valid packages:', validPackages) // Debug logging
-      
-      // Ensure we always set an array
       setPackages(validPackages)
     } catch (error: any) {
-      console.error("Failed to fetch packages:", error)
-      // Always set empty array on error
       setPackages([])
-      setError(error?.message || 'Failed to load packages')
+      setError(error?.response?.data?.detail || error?.message || 'Failed to load packages')
     } finally {
       setLoading(false)
     }
   }
 
   const setupWebSocketConnection = () => {
-    // Better connection status tracking
     wsManager.on('connected', () => {
       setConnectionStatus('connected')
     })
 
     wsManager.on('disconnected', () => {
       setConnectionStatus('disconnected')
+    })
+
+    wsManager.on('package_update', (data: any) => {
+      setPackages(prevPackages => {
+        const updatedPackages = prevPackages.map(pkg => {
+          if (pkg.id === data.data?.package_id || pkg.tracking_number === data.data?.tracking_number) {
+            return {
+              ...pkg,
+              ...data.data,
+              status: data.data?.status || pkg.status,
+              current_location: data.data?.current_location || pkg.current_location,
+              latitude: data.data?.latitude || pkg.latitude,
+              longitude: data.data?.longitude || pkg.longitude,
+              estimated_delivery: data.data?.estimated_delivery || pkg.estimated_delivery,
+              last_updated: data.data?.last_updated || pkg.last_updated
+            }
+          }
+          return pkg
+        })
+        return updatedPackages
+      })
+    })
+
+    wsManager.on('new_package', (data: any) => {
+      setPackages(prevPackages => {
+        const newPackage: Package = {
+          id: data.data?.package_id,
+          tracking_number: data.data?.tracking_number,
+          recipient_name: data.data?.recipient_name,
+          recipient_address: data.data?.recipient_address,
+          status: data.data?.status || 'pending',
+          created_at: data.data?.created_at,
+          estimated_delivery: data.data?.estimated_delivery,
+          shipping_cost: '0.00'
+        }
+        
+        const updatedPackages = [newPackage, ...prevPackages]
+        return updatedPackages
+      })
     })
 
     wsManager.connect("/ws/notifications/")
@@ -134,12 +172,9 @@ export function CustomerDashboard() {
     }
   }
 
-  // Enhanced filteredPackages with better error handling
   const filteredPackages = useMemo(() => {
     try {
-      // Double-check that packages is an array
       if (!Array.isArray(packages)) {
-        console.warn('[Dashboard] packages is not an array:', typeof packages, packages)
         return []
       }
       
@@ -153,27 +188,26 @@ export function CustomerDashboard() {
           
           return trackingMatch || recipientMatch
         } catch (filterError) {
-          // If filtering fails for this item, exclude it
-          console.warn('[Dashboard] Filter error for package:', pkg, filterError)
           return false
         }
       })
     } catch (error) {
-      console.error('[Dashboard] Error in filteredPackages:', error)
       return []
     }
   }, [packages, searchTerm])
 
-  // Safe helper functions for counting packages
   const getPackageCount = (status?: string) => {
-    if (!Array.isArray(packages)) return 0
+    if (!Array.isArray(packages)) {
+      return 0
+    }
     
-    if (!status) return packages.length
+    if (!status) {
+      return packages.length
+    }
     
     return packages.filter(pkg => pkg && pkg.status === status).length
   }
 
-  // Early return for loading state
   if (loading) {
     return (
       <DashboardLayout>
@@ -214,7 +248,6 @@ export function CustomerDashboard() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
@@ -230,7 +263,6 @@ export function CustomerDashboard() {
           </Link>
         </div>
 
-        {/* Stats Cards */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -297,7 +329,6 @@ export function CustomerDashboard() {
           </Card>
         </div>
 
-        {/* Search and Filters */}
         <div className="flex items-center space-x-2">
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -310,7 +341,6 @@ export function CustomerDashboard() {
             </div>
         </div>
 
-        {/* Packages List */}
         <Card>
           <CardHeader>
             <CardTitle>Your Packages</CardTitle>
@@ -343,7 +373,7 @@ export function CustomerDashboard() {
                   <motion.div
                     key={pkg.id}
                     initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
+                    animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.3 }}
                     className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50"
                   >
