@@ -199,10 +199,10 @@ export default function TrackingPage({ params }: { params: { trackingNumber: str
         <nav className="border-b border-border bg-card">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center h-16">
-              <Link href="/" className="flex items-center">
+              {/* <Link href="/" className="flex items-center">
                 <Package className="h-8 w-8 text-primary mr-2" />
                 <span className="text-2xl font-heading font-bold text-foreground">SwiftCourier</span>
-              </Link>
+              </Link> */}
               <div className="flex items-center gap-2">
                 {isConnected ? (
                   <Badge variant="secondary" className="bg-green-100 text-green-800 border border-green-200">
