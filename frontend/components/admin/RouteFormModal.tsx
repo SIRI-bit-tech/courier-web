@@ -128,8 +128,7 @@ export function RouteFormModal({ route, isOpen, onClose, onSave }: RouteFormModa
 
     try {
       // Create/update route logic here
-      // This would need to be implemented in your adminAPI
-      console.log("Route data:", formData)
+      // This would need to be implemented in adminAPI
       onSave()
       onClose()
     } catch (error) {

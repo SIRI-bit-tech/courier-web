@@ -44,6 +44,19 @@ export class WebSocketManager {
       const urlWithToken = token ? `${this.url}?token=${encodeURIComponent(token)}` : this.url
       
       this.ws = new WebSocket(urlWithToken)
+      
+      // Suppress browser WebSocket logs
+      if (typeof window !== 'undefined' && window.console) {
+        const originalLog = window.console.log
+        const originalError = window.console.error
+        window.console.log = (...args) => {
+          if (!args[0]?.includes?.('WebSocket')) originalLog.apply(window.console, args)
+        }
+        window.console.error = (...args) => {
+          if (!args[0]?.includes?.('WebSocket')) originalError.apply(window.console, args)
+        }
+      }
+      
       this.setupEventHandlers()
     } catch (error) {
       // Don't retry on setup errors
