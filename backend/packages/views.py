@@ -1,6 +1,9 @@
 from rest_framework import generics, status, viewsets
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import cache_page
+from django.views.decorators.vary import vary_on_headers
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from .models import Package, ServiceArea
@@ -42,6 +45,19 @@ class PackageDetailView(generics.RetrieveUpdateAPIView):
             return Package.objects.filter(route_stops__route__driver=user)
         else:
             return Package.objects.filter(sender=user)
+
+class PackageViewSet(viewsets.ModelViewSet):
+    queryset = Package.objects.select_related('sender').prefetch_related('tracking_events')
+    serializer_class = PackageSerializer
+    
+    @method_decorator(cache_page(300))  # Cache for 5 minutes
+    @method_decorator(vary_on_headers('Authorization'))
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
+    
+    @method_decorator(cache_page(60))  # Cache for 1 minute
+    def retrieve(self, request, *args, **kwargs):
+        return super().retrieve(request, *args, **kwargs)
 
 # Admin-specific viewsets for Django admin integration
 class AdminPackageViewSet(viewsets.ModelViewSet):

@@ -20,6 +20,9 @@ DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
 
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
+# Redis URL from environment - MOVED TO TOP TO FIX THE ERROR
+REDIS_URL = os.getenv('REDIS_URL', 'redis://127.0.0.1:6379')
+
 # Application definition
 DJANGO_APPS = [
     'daphne',
@@ -60,17 +63,15 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    # Custom security middleware - Temporarily disabled for ASGI compatibility
-    # 'swiftcourier_backend.middleware.SecurityHeadersMiddleware',
-    # 'swiftcourier_backend.middleware.RateLimitMiddleware',
-    # 'swiftcourier_backend.middleware.InputValidationMiddleware',
-    # Enhanced rate limiting - Temporarily disabled for ASGI compatibility
-    # 'swiftcourier_backend.middleware.EnhancedRateLimitMiddleware',
-    # Database optimization middleware - Temporarily disabled for ASGI compatibility
-    # 'swiftcourier_backend.middleware.DatabaseConnectionMiddleware',
-    # 'swiftcourier_backend.middleware.ConnectionPoolMiddleware',
-    # Compression middleware - Temporarily disabled for ASGI compatibility
-    # 'swiftcourier_backend.middleware.CompressionMiddleware',
+    'swiftcourier_backend.middleware.PerformanceMonitoringMiddleware',
+    'swiftcourier_backend.middleware.CompressionMiddleware',
+    'swiftcourier_backend.middleware.DatabaseConnectionMiddleware',
+    'swiftcourier_backend.middleware.ConnectionPoolMiddleware',
+    
+    # Security middleware (ASGI compatible)
+    'swiftcourier_backend.middleware.SecurityHeadersMiddleware',
+    'swiftcourier_backend.middleware.EnhancedRateLimitMiddleware',
+    'swiftcourier_backend.middleware.InputValidationMiddleware',
 ]
 
 ROOT_URLCONF = 'swiftcourier_backend.urls'
@@ -117,43 +118,12 @@ if not DEBUG and DATABASES['default'].get('ENGINE', '').endswith('postgresql'):
     DATABASES['default']['OPTIONS'] = {
         'sslmode': 'require',
     }
-
-# Enhanced Cache Configuration - Works in Dev & Prod
-CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': 'unique-snowflake',
-        'TIMEOUT': 3600,
-        'OPTIONS': {
-            'MAX_ENTRIES': 5000,  # Increased from 1000
-            'CULL_FREQUENCY': 3,
-        }
-    },
-    'session': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache', 
-        'LOCATION': 'session-cache',
-        'TIMEOUT': 1800,  # Reduced from 86400 (30min sessions)
-    },
-    'api': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': 'api-cache', 
-        'TIMEOUT': 300,  # Reduced from 1800 (5min API cache)
-        'OPTIONS': {
-            'MAX_ENTRIES': 2000,  # Increased from 500
-        }
-    },
-    'database': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': 'db-cache',
-        'TIMEOUT': 1800,  # Reduced from 7200
-        'OPTIONS': {
-            'MAX_ENTRIES': 1000,  # Increased from 200
-        }
-    }
-}
+# Database query optimization
+DATABASE_ROUTERS = [
+    'swiftcourier_backend.routers.ReadWriteRouter',
+]
 
 # Redis Cache Configuration (Auto-detects environment)
-REDIS_URL = os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/0')
 REDIS_AVAILABLE = False
 
 try:
@@ -164,43 +134,50 @@ try:
 except (ImportError, redis.ConnectionError):
     REDIS_AVAILABLE = False
 
+# Enhanced Cache Configuration - Works in Dev & Prod
 if REDIS_AVAILABLE:
-    CACHES.update({
+    CACHES = {
         'default': {
             'BACKEND': 'django.core.cache.backends.redis.RedisCache',
             'LOCATION': REDIS_URL,
+            'OPTIONS': {},
             'KEY_PREFIX': 'swiftcourier',
-            'TIMEOUT': 300 if not DEBUG else 60,
+            'TIMEOUT': 300,
         },
         'session': {
             'BACKEND': 'django.core.cache.backends.redis.RedisCache',
-            'LOCATION': f"{REDIS_URL}/1",
+            'LOCATION': REDIS_URL,
+            'OPTIONS': {},
             'KEY_PREFIX': 'session',
-            'TIMEOUT': 86400,
+            'TIMEOUT': 86400,  # 24 hours
         },
         'api': {
             'BACKEND': 'django.core.cache.backends.redis.RedisCache',
-            'LOCATION': f"{REDIS_URL}/2",
+            'LOCATION': REDIS_URL,
+            'OPTIONS': {},
             'KEY_PREFIX': 'api',
-            'TIMEOUT': 600 if not DEBUG else 120,
+            'TIMEOUT': 600,
         },
         'database': {
             'BACKEND': 'django.core.cache.backends.redis.RedisCache',
-            'LOCATION': f"{REDIS_URL}/3",
+            'LOCATION': REDIS_URL,
             'KEY_PREFIX': 'db',
-            'TIMEOUT': 3600 if not DEBUG else 300,
+            'TIMEOUT': 3600
         }
-    })
-
-# Cache settings for different environments
-if DEBUG:
-    # Development cache settings
-    CACHE_MIDDLEWARE_SECONDS = 0  # Disable cache middleware in dev
-    CACHE_MIDDLEWARE_KEY_PREFIX = 'swiftcourier_dev'
+    }
 else:
-    # Production cache settings
-    CACHE_MIDDLEWARE_SECONDS = 300  # 5 minutes
-    CACHE_MIDDLEWARE_KEY_PREFIX = 'swiftcourier_prod'
+    # Fallback to database cache if Redis is not available
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
+            'LOCATION': 'cache_table',
+        }
+    }
+
+# Cache settings
+CACHE_MIDDLEWARE_ALIAS = 'default'
+CACHE_MIDDLEWARE_SECONDS = 600  # 10 minutes
+CACHE_MIDDLEWARE_KEY_PREFIX = 'swiftcourier_prod'
 
 # Password validation - Relaxed for development
 if DEBUG:
@@ -225,7 +202,7 @@ else:
         {
             'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
             'OPTIONS': {
-                'min_length': 12,
+                'min_length': 8,
             }
         },
         {
@@ -273,7 +250,7 @@ WEBSOCKET_PING_TIMEOUT = 10
 
 # Session settings - Enhanced Security
 SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
-SESSION_CACHE_ALIAS = 'session'
+SESSION_CACHE_ALIAS = 'session' if REDIS_AVAILABLE else 'default'
 SESSION_COOKIE_AGE = 3600  # 1 hour
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SECURE = not DEBUG
@@ -324,7 +301,7 @@ CORS_ALLOW_HEADERS = [
     'user-agent',
     'x-csrftoken',
     'x-requested-with',
-    'x-request-id',  # ✅ Add this for frontend API client
+    'x-request-id',  # Add this for frontend API client
 ]
 
 # REST Framework configuration - Enhanced Security
@@ -389,76 +366,15 @@ SIMPLE_JWT = {
     'JTI_CLAIM': 'jti',
 }
 
-# Redis URL from environment (works for both Render and local Redis)
-REDIS_URL = os.getenv('REDIS_URL')
-
-# ✅ FIX: Proper CHANNEL_LAYERS configuration for both environments
-if REDIS_URL:
-    # Production: Use Redis with proper configuration
-    CHANNEL_LAYERS = {
-        'default': {
-            'BACKEND': 'channels_redis.core.RedisChannelLayer',
-            'CONFIG': {
-                "hosts": [REDIS_URL],
-                "capacity": 1000,
-                "expiry": 30,
-                "group_expiry": 86400,
-                "version": 4,  # Redis 4.x compatibility
-            },
-        },
-    }
-else:
-    # Development: Use InMemoryChannelLayer (no Redis required)
-    CHANNEL_LAYERS = {
-        'default': {
-            'BACKEND': 'channels.layers.InMemoryChannelLayer',
-            'CONFIG': {
-                "capacity": 1000,
-                "expiry": 30,
-                "group_expiry": 86400,
-            },
-        },
-    }
-
-# Enhanced logging for debugging
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'formatters': {
-        'verbose': {
-            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
-            'style': '{',
-        },
-        'simple': {
-            'format': '{levelname} {message}',
-            'style': '{',
-        },
-    },
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-            'formatter': 'simple',
-        },
-        'file': {
-            'class': 'logging.FileHandler',
-            'filename': 'logs/django.log',
-            'formatter': 'verbose',
-        },
-    },
-    'root': {
-        'handlers': ['console', 'file'],
-        'level': 'INFO',
-    },
-    'loggers': {
-        'django': {
-            'handlers': ['console', 'file'],
-            'level': 'INFO',
-            'propagate': False,
-        },
-        'channels': {
-            'handlers': ['console', 'file'],
-            'level': 'INFO',
-            'propagate': False,
+# CHANNEL_LAYERS configuration for both environments
+# Force InMemoryChannelLayer to avoid Redis version compatibility issues
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels.layers.InMemoryChannelLayer',
+        'CONFIG': {
+            "capacity": 1000,
+            "expiry": 30,
+            "group_expiry": 86400,
         },
     },
 }
@@ -488,14 +404,11 @@ TWILIO_PHONE_NUMBER = os.getenv('TWILIO_PHONE_NUMBER')
 AUTH_USER_MODEL = 'accounts.User'
 
 # Celery Configuration - Fixed for both environments
-REDIS_URL = os.getenv('REDIS_URL')
-
-# ✅ FIX: Safe Redis URL handling for Celery
-if REDIS_URL:
-    CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', REDIS_URL.replace('/0', '/1'))
-    CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', REDIS_URL.replace('/0', '/2'))
+if REDIS_AVAILABLE:
+    CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', REDIS_URL.replace('/0', '/1') if '/0' in REDIS_URL else f"{REDIS_URL}/1")
+    CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', REDIS_URL.replace('/0', '/2') if '/0' in REDIS_URL else f"{REDIS_URL}/2")
 else:
-    # ✅ FIX: Fallback to in-memory for development without Redis
+    # Fallback to in-memory for development without Redis
     CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'memory://')
     CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', 'cache+memory://')
 
@@ -503,26 +416,6 @@ CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
-
-# Monitoring and Performance Settings
-if not DEBUG:
-    # Django Debug Toolbar (only in development)
-    INSTALLED_APPS = [app for app in INSTALLED_APPS if not app.startswith('debug_toolbar')]
-    
-    # Performance monitoring
-    MIDDLEWARE.insert(0, 'swiftcourier_backend.middleware.PerformanceMonitoringMiddleware')
-    
-    # Enhanced logging for production
-    LOGGING['handlers']['file']['level'] = 'WARNING'
-    LOGGING['handlers']['security_file']['level'] = 'WARNING'
-    
-    # Add performance logging
-    LOGGING['loggers']['django.request']['level'] = 'WARNING'
-    LOGGING['loggers']['swiftcourier.performance'] = {
-        'handlers': ['file'],
-        'level': 'INFO',
-        'propagate': False,
-    }
 
 # Logging configuration - Enhanced Security
 LOGGING = {
@@ -581,6 +474,11 @@ LOGGING = {
             'level': 'WARNING',
             'propagate': False,
         },
+        'channels': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
     },
 }
 
@@ -588,6 +486,26 @@ LOGGING = {
 os.makedirs(os.path.join(BASE_DIR, 'logs'), exist_ok=True)
 os.makedirs(os.path.join(BASE_DIR, 'certs'), exist_ok=True)
 os.makedirs(os.path.join(BASE_DIR, 'tmp'), exist_ok=True)
+
+# Monitoring and Performance Settings
+if not DEBUG:
+    # Django Debug Toolbar (only in development)
+    INSTALLED_APPS = [app for app in INSTALLED_APPS if not app.startswith('debug_toolbar')]
+    
+    # Performance monitoring
+    MIDDLEWARE.insert(0, 'swiftcourier_backend.middleware.PerformanceMonitoringMiddleware')
+    
+    # Enhanced logging for production
+    LOGGING['handlers']['file']['level'] = 'WARNING'
+    LOGGING['handlers']['security_file']['level'] = 'WARNING'
+    
+    # Add performance logging
+    LOGGING['loggers']['django.request']['level'] = 'WARNING'
+    LOGGING['loggers']['swiftcourier.performance'] = {
+        'handlers': ['file'],
+        'level': 'INFO',
+        'propagate': False,
+    }
 
 # Performance optimizations
 if not DEBUG:
