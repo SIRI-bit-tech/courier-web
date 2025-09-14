@@ -13,22 +13,56 @@ echo -e "${GREEN}🚀 Starting SwiftCourier Backend...${NC}"
 # Function to parse DATABASE_URL and extract host/port
 parse_database_url() {
     if [ -n "$DATABASE_URL" ]; then
-        # Extract host from DATABASE_URL
-        # Format: postgresql://username:password@host:port/database
-        DB_HOST=$(echo $DATABASE_URL | sed -n 's|.*://.*:.*@\([^:]*\):\([^/]*\)/.*|\1|p')
-        DB_PORT=$(echo $DATABASE_URL | sed -n 's|.*://.*:.*@\([^:]*\):\([^/]*\)/.*|\2|p')
+        echo -e "${YELLOW}🔗 Parsing URL: ${DATABASE_URL}${NC}"
         
-        # If port is not found in URL, use default PostgreSQL port
-        if [ -z "$DB_PORT" ]; then
-            DB_PORT="5432"
+        # Method 1: Try to extract from standard format (without query params)
+        DB_HOST=$(echo $DATABASE_URL | sed -n 's|.*://.*@\(.*\):[0-9]\+/.*|\1|p')
+        DB_PORT=$(echo $DATABASE_URL | sed -n 's|.*://.*:\([0-9]\+\)/.*|\1|p')
+        
+        # Method 2: If method 1 failed, handle query parameters
+        if [ -z "$DB_HOST" ] || [ -z "$DB_PORT" ]; then
+            echo -e "${YELLOW}⚠️  Standard parsing failed, trying alternative method...${NC}"
+            
+            # Remove query parameters first
+            CLEAN_URL=$(echo $DATABASE_URL | sed 's|\?.*||')
+            echo -e "${YELLOW}🧹 Clean URL: ${CLEAN_URL}${NC}"
+            
+            # Extract host and port from clean URL
+            DB_HOST=$(echo $CLEAN_URL | sed -n 's|.*://.*@\(.*\):[0-9]\+/.*|\1|p')
+            DB_PORT=$(echo $CLEAN_URL | sed -n 's|.*://.*:\([0-9]\+\)/.*|\1|p')
         fi
         
-        echo -e "${GREEN}📊 Parsed database connection: ${DB_HOST}:${DB_PORT}${NC}"
+        # Method 3: Manual parsing if regex still fails
+        if [ -z "$DB_HOST" ]; then
+            echo -e "${YELLOW}⚠️  Regex parsing failed, using manual extraction...${NC}"
+            
+            # Extract everything after @ and before :
+            TEMP=$(echo $DATABASE_URL | sed 's|.*://.*@||' | sed 's|:.*||')
+            if [ -n "$TEMP" ]; then
+                DB_HOST=$TEMP
+                echo -e "${GREEN}✅ Manual host extraction: ${DB_HOST}${NC}"
+            fi
+        fi
+        
+        # Set default port if still empty
+        if [ -z "$DB_PORT" ]; then
+            DB_PORT="5432"
+            echo -e "${YELLOW}⚠️  Using default port: ${DB_PORT}${NC}"
+        fi
+        
+        # Validate we have a host
+        if [ -z "$DB_HOST" ]; then
+            echo -e "${RED}❌ ERROR: Could not extract host from DATABASE_URL${NC}"
+            echo -e "${RED}❌ DATABASE_URL: ${DATABASE_URL}${NC}"
+            return 1
+        fi
+        
+        echo -e "${GREEN}✅ Successfully parsed database connection: ${DB_HOST}:${DB_PORT}${NC}"
     else
         # Fallback to individual environment variables
         DB_HOST=${DB_HOST:-localhost}
         DB_PORT=${DB_PORT:-5432}
-        echo -e "${YELLOW}⚠️  Using fallback database connection: ${DB_HOST}:${DB_PORT}${NC}"
+        echo -e "${YELLOW}⚠️  No DATABASE_URL found, using fallback: ${DB_HOST}:${DB_PORT}${NC}"
     fi
 }
 
