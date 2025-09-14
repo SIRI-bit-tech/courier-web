@@ -28,8 +28,8 @@ export default function AdminUsersPage() {
 
   const fetchUsers = async () => {
     try {
-      const response = await adminAPI.get("/users/")
-      setUsers(response.data.results || response.data)
+      const response = await adminAPI.getUsers()
+      setUsers(response.results || response)
     } catch (error) {
       console.error("Failed to fetch users:", error)
     } finally {
@@ -39,7 +39,7 @@ export default function AdminUsersPage() {
 
   const toggleUserStatus = async (userId: number, isActive: boolean) => {
     try {
-      await adminAPI.patch(`/users/${userId}/`, { is_active: !isActive })
+      await adminAPI.updateUser(userId, { is_active: !isActive })
       fetchUsers()
     } catch (error) {
       console.error("Failed to update user status:", error)
