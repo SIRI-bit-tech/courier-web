@@ -82,7 +82,7 @@ export default function ShipPage() {
         return
       }
 
-      // User data validation (temporarily relaxed for debugging)
+      // User data validation (allow package creation even with incomplete profile)
       const hasValidName = (currentUser.first_name && currentUser.last_name && 
                           currentUser.first_name.trim() !== '' && 
                           currentUser.last_name.trim() !== '') || true // Allow even if missing
@@ -97,20 +97,8 @@ export default function ShipPage() {
       const hasValidPhone = (currentUser.phone_number && 
                            currentUser.phone_number.trim() !== '') || true // Allow even if missing
 
-      if (!hasValidName) {
-        setError("Your profile is missing name information. Please update your profile with your first and last name.")
-        return
-      }
-
-      if (!hasValidAddress) {
-        setError("Your profile is missing address information. Please update your profile with your complete address.")
-        return
-      }
-
-      if (!hasValidPhone) {
-        setError("Your profile is missing phone number. Please update your profile with your phone number.")
-        return
-      }
+      // Allow package creation even with incomplete profile data
+      // The packageData object below will use fallback values for missing data
 
       // Convert and validate numeric values
       const weightNum = parseFloat(formData.weight) || 0.1
@@ -119,7 +107,7 @@ export default function ShipPage() {
       const heightNum = parseFloat(formData.height) || 0
       
       const packageData: CreatePackageData = {
-        // Sender details from user profile - handle missing data
+        // Sender details from user profile - handle missing data gracefully
         sender_name: currentUser.first_name && currentUser.last_name 
           ? `${currentUser.first_name} ${currentUser.last_name}`.trim()
           : 'Unknown Sender',
@@ -137,7 +125,7 @@ export default function ShipPage() {
         package_type: formData.packageType || 'package',
         description: formData.description,
 
-        // Receiver details (corrected field names) - handle missing data
+        // Receiver details - use form data directly
         recipient_name: formData.receiverName?.trim() || 'Unknown Recipient',
         recipient_phone: formData.receiverPhone?.trim() || '000-000-0000',
         recipient_address: formData.receiverAddress?.trim() || 'No address provided',
@@ -146,23 +134,31 @@ export default function ShipPage() {
         recipient_zip: formData.receiverZip?.trim() || '00000',
       }
 
-      // Validate required fields using numeric values
+      // Debug: Log the actual data being sent
+      // console.log('📤 SUBMITTING PACKAGE DATA:', {
+      //   formData: formData,
+      //   packageData: packageData,
+      //   weightNum: weightNum,
+      //   currentUser: currentUser
+      // })
+
+      // Validate required form fields (not profile fields)
       if (!formData.weight || isNaN(weightNum) || weightNum <= 0) {
         setError("Package weight is required and must be greater than 0.")
         return
       }
       
-      if (!packageData.package_type) {
+      if (!formData.packageType) {
         setError("Package type is required.")
         return
       }
       
-      if (!packageData.recipient_name || !packageData.recipient_name.trim()) {
+      if (!formData.receiverName || !formData.receiverName.trim()) {
         setError("Recipient name is required.")
         return
       }
       
-      if (!packageData.recipient_address || !packageData.recipient_address.trim()) {
+      if (!formData.receiverAddress || !formData.receiverAddress.trim()) {
         setError("Recipient address is required.")
         return
       }
@@ -432,21 +428,21 @@ export default function ShipPage() {
                   <div>
                     <h4 className="font-semibold text-primary mb-3">Package Details</h4>
                     <div className="space-y-2 text-sm">
-                      <p><span className="text-muted">Weight:</span> {formData.weight} kg</p>
-                      <p><span className="text-muted">Dimensions:</span> {formData.length}×{formData.width}×{formData.height} cm</p>
-                      <p><span className="text-muted">Type:</span> {formData.packageType}</p>
-                      <p><span className="text-muted">Description:</span> {formData.description}</p>
+                      <p><span className="text-gray-600">Weight:</span> {formData.weight} kg</p>
+                      <p><span className="text-gray-600">Dimensions:</span> {formData.length}×{formData.width}×{formData.height} cm</p>
+                      <p><span className="text-gray-600">Type:</span> {formData.packageType}</p>
+                      <p><span className="text-gray-600">Description:</span> {formData.description}</p>
                     </div>
                   </div>
 
                   <div>
                     <h4 className="font-semibold text-primary mb-3">Receiver Details</h4>
                     <div className="space-y-2 text-sm">
-                      <p><span className="text-muted">Name:</span> {formData.receiverName}</p>
-                      <p><span className="text-muted">Phone:</span> {formData.receiverPhone}</p>
-                      <p><span className="text-muted">Address:</span> {formData.receiverAddress}</p>
-                      <p><span className="text-muted">City/State:</span> {formData.receiverCity}, {formData.receiverState}</p>
-                      <p><span className="text-muted">ZIP:</span> {formData.receiverZip}</p>
+                      <p><span className="text-gray-600">Name:</span> {formData.receiverName}</p>
+                      <p><span className="text-gray-600">Phone:</span> {formData.receiverPhone}</p>
+                      <p><span className="text-gray-600">Address:</span> {formData.receiverAddress}</p>
+                      <p><span className="text-gray-600">City/State:</span> {formData.receiverCity}, {formData.receiverState}</p>
+                      <p><span className="text-gray-600">ZIP:</span> {formData.receiverZip}</p>
                     </div>
                   </div>
                 </div>
@@ -454,8 +450,8 @@ export default function ShipPage() {
                 <div className="border-t pt-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-muted">Ready to ship your package?</p>
-                      <p className="text-sm text-muted">You'll receive a tracking number after creation.</p>
+                      <p className="text-sm text-gray-600">Ready to ship your package?</p>
+                      <p className="text-sm text-gray-600">You'll receive a tracking number after creation.</p>
                     </div>
                     <Button
                       onClick={handleSubmit}

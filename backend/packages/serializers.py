@@ -71,7 +71,10 @@ class PackageCreateSerializer(serializers.ModelSerializer):
         
         # Ensure user is authenticated
         if not user or not user.is_authenticated:
+            # print("❌ User not authenticated")
             raise serializers.ValidationError("User must be authenticated to create a package.")
+        
+        # print(f"✅ User authenticated: {user.username} (ID: {user.id})")
         
         # Calculate shipping cost
         shipping_cost = self.calculate_shipping_cost(validated_data)

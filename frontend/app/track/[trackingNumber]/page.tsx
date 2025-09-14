@@ -45,23 +45,19 @@ export default function TrackingPage({ params }: { params: { trackingNumber: str
       wsManager.connect(`/ws/tracking/${params.trackingNumber}/`)
 
       wsManager.on("connected", () => {
-        console.log("[v0] WebSocket connected for tracking:", params.trackingNumber)
         setIsConnected(true)
       })
 
       wsManager.on("disconnected", () => {
-        console.log("[v0] WebSocket disconnected")
         setIsConnected(false)
       })
 
       wsManager.on("package_status", (data: any) => {
-        console.log("[v0] Received package status:", data)
         setPackageData(data.data)
         setLastUpdate(new Date())
       })
 
       wsManager.on("package_update", (data: any) => {
-        console.log("[v0] Received package update:", data)
         setPackageData((prevData) => {
           if (!prevData) return data.data
           return {
@@ -74,7 +70,6 @@ export default function TrackingPage({ params }: { params: { trackingNumber: str
       })
 
       wsManager.on("error", (error: any) => {
-        console.error("[v0] WebSocket error:", error)
         setIsConnected(false)
       })
     }

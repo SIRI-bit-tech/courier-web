@@ -58,12 +58,10 @@ export function DriverDashboard() {
     wsManager.connect("/ws/driver-updates/")
 
     wsManager.on("route_update", (data: any) => {
-      console.log("[v0] Received route update:", data)
       setRoutes((prev) => prev.map((route) => (route.id === data.route_id ? { ...route, ...data } : route)))
     })
 
     wsManager.on("stop_update", (data: any) => {
-      console.log("[v0] Received stop update:", data)
       setRoutes((prev) =>
         prev.map((route) => ({
           ...route,
