@@ -10,6 +10,28 @@ NC='\033[0m' # No Color
 
 echo -e "${GREEN}🚀 Starting SwiftCourier Backend...${NC}"
 
+# Function to parse DATABASE_URL and extract host/port
+parse_database_url() {
+    if [ -n "$DATABASE_URL" ]; then
+        # Extract host from DATABASE_URL
+        # Format: postgresql://username:password@host:port/database
+        DB_HOST=$(echo $DATABASE_URL | sed -n 's|.*://.*:.*@\([^:]*\):\([^/]*\)/.*|\1|p')
+        DB_PORT=$(echo $DATABASE_URL | sed -n 's|.*://.*:.*@\([^:]*\):\([^/]*\)/.*|\2|p')
+        
+        # If port is not found in URL, use default PostgreSQL port
+        if [ -z "$DB_PORT" ]; then
+            DB_PORT="5432"
+        fi
+        
+        echo -e "${GREEN}📊 Parsed database connection: ${DB_HOST}:${DB_PORT}${NC}"
+    else
+        # Fallback to individual environment variables
+        DB_HOST=${DB_HOST:-localhost}
+        DB_PORT=${DB_PORT:-5432}
+        echo -e "${YELLOW}⚠️  Using fallback database connection: ${DB_HOST}:${DB_PORT}${NC}"
+    fi
+}
+
 # Function to wait for database
 wait_for_db() {
     echo -e "${YELLOW}⏳ Waiting for database connection...${NC}"
@@ -18,7 +40,7 @@ wait_for_db() {
     local attempt=1
     
     while [ $attempt -le $max_attempts ]; do
-        if nc -z ${DB_HOST:-localhost} ${DB_PORT:-5432} 2>/dev/null; then
+        if nc -z $DB_HOST $DB_PORT 2>/dev/null; then
             echo -e "${GREEN}✅ Database connection established${NC}"
             return 0
         fi
@@ -31,6 +53,9 @@ wait_for_db() {
     echo -e "${RED}❌ Failed to connect to database after $max_attempts attempts${NC}"
     return 1
 }
+
+# Parse database URL first
+parse_database_url
 
 # Wait for database
 wait_for_db
