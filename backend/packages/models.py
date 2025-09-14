@@ -13,6 +13,7 @@ class Package(models.Model):
     STATUS_CHOICES = [
         ('pending', 'Pending'),
         ('picked_up', 'Picked Up'),
+        ('on_hold', 'On Hold'),
         ('in_transit', 'In Transit'),
         ('out_for_delivery', 'Out for Delivery'),
         ('delivered', 'Delivered'),

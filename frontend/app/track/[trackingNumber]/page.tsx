@@ -120,6 +120,8 @@ export default function TrackingPage({ params }: { params: { trackingNumber: str
       case "in_transit":
       case "out_for_delivery":
         return <Truck className="h-6 w-6 text-primary" />
+      case "on_hold":
+        return <Clock className="h-6 w-6 text-yellow-500" />
       case "failed_delivery":
         return <AlertCircle className="h-6 w-6 text-destructive" />
       default:
@@ -134,11 +136,26 @@ export default function TrackingPage({ params }: { params: { trackingNumber: str
       case "in_transit":
       case "out_for_delivery":
         return "text-primary"
+      case "on_hold":
+        return "text-yellow-500"
       case "failed_delivery":
         return "text-destructive"
       default:
         return "text-gray-600"
     }
+  }
+
+  // Helper function to determine step status
+  const getStepStatus = (step: string, currentStatus?: string): 'completed' | 'current' | 'pending' => {
+    if (!currentStatus) return 'pending'
+    
+    const statusOrder = ['created', 'pending', 'confirmed', 'picked_up', 'in_transit', 'out_for_delivery', 'delivered']
+    const currentIndex = statusOrder.indexOf(currentStatus)
+    const stepIndex = statusOrder.indexOf(step)
+    
+    if (stepIndex < currentIndex) return 'completed'
+    if (stepIndex === currentIndex) return 'current'
+    return 'pending'
   }
 
   if (authLoading) {
@@ -199,10 +216,10 @@ export default function TrackingPage({ params }: { params: { trackingNumber: str
         <nav className="border-b border-border bg-card">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center h-16">
-              {/* <Link href="/" className="flex items-center">
+              <Link href="/" className="flex items-center">
                 <Package className="h-8 w-8 text-primary mr-2" />
                 <span className="text-2xl font-heading font-bold text-foreground">SwiftCourier</span>
-              </Link> */}
+              </Link>
               <div className="flex items-center gap-2">
                 {isConnected ? (
                   <Badge variant="secondary" className="bg-green-100 text-green-800 border border-green-200">
@@ -303,43 +320,103 @@ export default function TrackingPage({ params }: { params: { trackingNumber: str
                 </Card>
               )}
 
-              {/* Tracking Timeline */}
+              {/* Enhanced Tracking Timeline */}
               <Card className="border-primary/20">
                 <CardHeader>
-                  <CardTitle className="font-heading text-primary">Tracking History</CardTitle>
-                  <CardDescription>Follow your package's journey</CardDescription>
+                  <CardTitle className="font-heading text-primary">Complete Journey</CardTitle>
+                  <CardDescription>Follow your package from creation to delivery</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-6">
-                    {packageData?.tracking_events?.map((event, index) => (
-                      <motion.div
-                        key={event.id}
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ duration: 0.5, delay: index * 0.1 }}
-                        className="flex gap-4"
-                      >
-                        <div className="flex flex-col items-center">
-                          {getStatusIcon(event.status)}
-                          {index < (packageData.tracking_events?.length || 0) - 1 && (
-                            <div className="w-px h-12 bg-primary/30 mt-2" />
-                          )}
+                  <div className="space-y-8">
+                    {/* Current Status Highlight */}
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="flex gap-4 p-6 bg-primary/10 rounded-xl border-2 border-primary/20"
+                    >
+                      <div className="flex flex-col items-center">
+                        <div className="w-12 h-12 bg-primary rounded-full flex items-center justify-center">
+                          {getStatusIcon(packageData?.status || "")}
                         </div>
-                        <div className="flex-1 pb-6">
-                          <div className="flex items-center justify-between mb-1">
-                            <h4 className="font-semibold capitalize">{event.status.replace("_", " ")}</h4>
-                            <span className="text-sm text-gray-600">{new Date(event.timestamp).toLocaleString()}</span>
-                          </div>
-                          <p className="text-gray-600 text-pretty">{event.description}</p>
-                          {event.location && (
-                            <p className="text-sm text-gray-600 mt-1 flex items-center gap-1">
-                              <MapPin className="h-3 w-3" />
-                              {event.location}
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between mb-2">
+                          <h3 className="text-xl font-bold text-primary capitalize">
+                            Current Status: {packageData?.status?.replace("_", " ")}
+                          </h3>
+                          <span className="text-sm text-gray-600 bg-gray-100 px-3 py-1 rounded-full">
+                            {new Date().toLocaleString()}
+                          </span>
+                        </div>
+                        <p className="text-gray-700 text-lg">
+                          {packageData?.status === 'delivered' && '🎉 Package successfully delivered!'}
+                          {packageData?.status === 'in_transit' && '🚚 Package is on the way to you'}
+                          {packageData?.status === 'out_for_delivery' && '🚛 Package is out for delivery to your address'}
+                          {packageData?.status === 'picked_up' && '✅ Package has been picked up by our courier'}
+                          {packageData?.status === 'pending' && '⏳ Package is ready for pickup at the origin'}
+                          {packageData?.status === 'on_hold' && '⏸️ Package is currently on hold'}
+                          {packageData?.status === 'failed_delivery' && '❌ Delivery attempt failed - will retry'}
+                          {packageData?.status === 'cancelled' && '🚫 Package delivery cancelled'}
+                        </p>
+                        {packageData?.current_location && (
+                          <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                            <p className="text-sm text-blue-800 flex items-center gap-2">
+                              <MapPin className="h-4 w-4" />
+                              <strong>Current Location:</strong> {packageData.current_location}
                             </p>
-                          )}
+                          </div>
+                        )}
+                      </div>
+                    </motion.div>
+
+                    {/* Historical Events Timeline */}
+                    {packageData?.tracking_events && packageData.tracking_events.length > 0 && (
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 0.5 }}
+                        className="mt-12"
+                      >
+                        <h4 className="text-lg font-semibold text-gray-800 mb-4">📋 Detailed Event History</h4>
+                        <div className="space-y-4">
+                          {packageData.tracking_events
+                            .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+                            .map((event, index) => (
+                              <motion.div
+                                key={event.id}
+                                initial={{ opacity: 0, x: -20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ duration: 0.5, delay: index * 0.1 }}
+                                className="flex gap-4 p-4 bg-gray-50 rounded-lg border"
+                              >
+                                <div className="flex flex-col items-center">
+                                  {getStatusIcon(event.status)}
+                                  {index < packageData.tracking_events.length - 1 && (
+                                    <div className="w-px h-8 bg-gray-300 mt-2" />
+                                  )}
+                                </div>
+                                <div className="flex-1">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <h5 className="font-semibold capitalize text-gray-800">
+                                      {event.status.replace("_", " ")}
+                                    </h5>
+                                    <span className="text-sm text-gray-600 bg-white px-2 py-1 rounded">
+                                      {new Date(event.timestamp).toLocaleString()}
+                                    </span>
+                                  </div>
+                                  <p className="text-gray-700">{event.description}</p>
+                                  {event.location && (
+                                    <p className="text-sm text-gray-600 mt-2 flex items-center gap-1">
+                                      <MapPin className="h-3 w-3" />
+                                      {event.location}
+                                    </p>
+                                  )}
+                                </div>
+                              </motion.div>
+                            ))}
                         </div>
                       </motion.div>
-                    ))}
+                    )}
                   </div>
                 </CardContent>
               </Card>

@@ -7,6 +7,13 @@ class PackageAdmin(admin.ModelAdmin):
     list_filter = ('status', 'package_type', 'created_at')
     search_fields = ('tracking_number', 'recipient_name', 'sender__username')
     readonly_fields = ('tracking_number', 'qr_code', 'created_at', 'updated_at')
+    
+    def get_form(self, request, obj=None, **kwargs):
+        form = super().get_form(request, obj, **kwargs)
+        # Ensure status field uses the model's choices
+        if 'status' in form.base_fields:
+            form.base_fields['status'].choices = Package.STATUS_CHOICES
+        return form
 
 @admin.register(ServiceArea)
 class ServiceAreaAdmin(admin.ModelAdmin):

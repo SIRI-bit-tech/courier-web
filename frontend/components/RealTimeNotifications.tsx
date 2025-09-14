@@ -28,8 +28,9 @@ export function RealTimeNotifications({ trackingNumber }: RealTimeNotificationsP
     wsManager.connect(`/ws/tracking/${trackingNumber}/`)
 
     wsManager.on("package_update", (data: any) => {
+      const notificationId = Date.now().toString()
       const notification: Notification = {
-        id: Date.now().toString(),
+        id: notificationId,
         type: getNotificationType(data.data.status),
         title: "Package Update",
         message: `Your package is now ${data.data.status.replace("_", " ")}`,
@@ -38,9 +39,9 @@ export function RealTimeNotifications({ trackingNumber }: RealTimeNotificationsP
 
       setNotifications((prev) => [notification, ...prev.slice(0, 4)]) // Keep only 5 notifications
 
-      // Auto-remove notification after 5 seconds
+      // Auto-remove notification after 5 seconds using the stored ID
       setTimeout(() => {
-        setNotifications((prev) => prev.filter((n) => n.id !== notification.id))
+        setNotifications((prev) => prev.filter((n) => n.id !== notificationId))
       }, 5000)
     })
 
@@ -80,10 +81,11 @@ export function RealTimeNotifications({ trackingNumber }: RealTimeNotificationsP
 
   return (
     <div className="fixed top-4 right-4 z-50 space-y-2 max-w-sm">
-      <AnimatePresence>
+      <AnimatePresence mode="popLayout">
         {notifications.map((notification) => (
           <motion.div
             key={notification.id}
+            layout
             initial={{ opacity: 0, x: 300, scale: 0.3 }}
             animate={{ opacity: 1, x: 0, scale: 1 }}
             exit={{ opacity: 0, x: 300, scale: 0.5, transition: { duration: 0.2 } }}
@@ -94,15 +96,18 @@ export function RealTimeNotifications({ trackingNumber }: RealTimeNotificationsP
                 <div className="flex items-start gap-3">
                   {getIcon(notification.type)}
                   <div className="flex-1 min-w-0">
-                    <h4 className="font-semibold text-sm">{notification.title}</h4>
-                    <p className="text-sm text-muted mt-1">{notification.message}</p>
-                    <p className="text-xs text-muted mt-2">{notification.timestamp.toLocaleTimeString()}</p>
+                    <h4 className="font-semibold text-sm text-foreground">{notification.title}</h4>
+                    <p className="text-sm text-foreground mt-1">{notification.message}</p>
+                    <p className="text-xs text-foreground/70 mt-2">{notification.timestamp.toLocaleTimeString()}</p>
                   </div>
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => removeNotification(notification.id)}
-                    className="h-6 w-6 p-0"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      removeNotification(notification.id)
+                    }}
+                    className="h-6 w-6 p-0 hover:bg-destructive/10 hover:text-destructive"
                   >
                     <X className="h-3 w-3" />
                   </Button>

@@ -175,6 +175,7 @@ export function PackageFormModal({ package: pkg, isOpen, onClose, onSave }: Pack
                     <SelectItem value="pending">Pending</SelectItem>
                     <SelectItem value="picked_up">Picked Up</SelectItem>
                     <SelectItem value="in_transit">In Transit</SelectItem>
+                    <SelectItem value="on_hold">On Hold</SelectItem>
                     <SelectItem value="out_for_delivery">Out for Delivery</SelectItem>
                     <SelectItem value="delivered">Delivered</SelectItem>
                     <SelectItem value="failed_delivery">Failed Delivery</SelectItem>

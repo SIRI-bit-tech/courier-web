@@ -14,7 +14,7 @@ def get_email_task():
         # Import the celery app to ensure it's initialized
         from swiftcourier_backend.celery import app
         # Now import the task
-        from notifications.tasks import send_tracking_notification_email
+from notifications.tasks import send_tracking_notification_email
         return send_tracking_notification_email
     except Exception as e:
         # Fallback: return a dummy function that doesn't crash
@@ -24,6 +24,33 @@ def get_email_task():
 
 # Get the task function
 send_tracking_notification_email = get_email_task()
+
+@receiver(post_save, sender=Package)
+def create_initial_tracking_events(sender, instance, created, **kwargs):
+    """Create initial tracking events when a package is first created"""
+    if created:
+        # Create initial tracking event for package creation
+        TrackingEvent.objects.create(
+            package=instance,
+            status='created',
+            description=f'Package created and ready for pickup at {instance.sender_address}',
+            location=instance.sender_address,
+            latitude=instance.sender_latitude,
+            longitude=instance.sender_longitude,
+            created_by=instance.sender
+        )
+        
+        # If package has a pending status, create another event
+        if instance.status == 'pending':
+            TrackingEvent.objects.create(
+                package=instance,
+                status='pending',
+                description='Package is pending pickup',
+                location=instance.sender_address,
+                latitude=instance.sender_latitude,
+                longitude=instance.sender_longitude,
+                created_by=instance.sender
+            )
 
 @receiver(post_save, sender=TrackingEvent)
 def broadcast_tracking_update(sender, instance, created, **kwargs):
@@ -38,16 +65,16 @@ def broadcast_tracking_update(sender, instance, created, **kwargs):
             {
                 'type': 'package_update',
                 'data': {
-                    'tracking_number': instance.package.tracking_number,
-                    'status': instance.package.status,
-                    'current_location': instance.package.current_location,
-                    'latitude': float(instance.package.current_latitude) if instance.package.current_latitude else None,
-                    'longitude': float(instance.package.current_longitude) if instance.package.current_longitude else None,
-                    'estimated_delivery': instance.package.estimated_delivery.isoformat() if instance.package.estimated_delivery else None,
+            'tracking_number': instance.package.tracking_number,
+            'status': instance.package.status,
+            'current_location': instance.package.current_location,
+            'latitude': float(instance.package.current_latitude) if instance.package.current_latitude else None,
+            'longitude': float(instance.package.current_longitude) if instance.package.current_longitude else None,
+            'estimated_delivery': instance.package.estimated_delivery.isoformat() if instance.package.estimated_delivery else None,
                     'last_updated': instance.timestamp.isoformat(),
                     'sender_id': instance.package.sender.id
                 }
-            }
+        }
         )
         
         # Send to user's notifications group
@@ -73,7 +100,7 @@ def broadcast_tracking_update(sender, instance, created, **kwargs):
         # Send email notification
         try:
             if hasattr(send_tracking_notification_email, 'delay'):
-                send_tracking_notification_email.delay(instance.package.id)
+        send_tracking_notification_email.delay(instance.package.id)
             else:
                 # Fallback to synchronous call
                 send_tracking_notification_email(instance.package.id)
@@ -93,16 +120,16 @@ def broadcast_package_update(sender, instance, created, **kwargs):
             {
                 'type': 'package_update',
                 'data': {
-                    'tracking_number': instance.tracking_number,
-                    'status': instance.status,
-                    'current_location': instance.current_location,
-                    'latitude': float(instance.current_latitude) if instance.current_latitude else None,
-                    'longitude': float(instance.current_longitude) if instance.current_longitude else None,
-                    'estimated_delivery': instance.estimated_delivery.isoformat() if instance.estimated_delivery else None,
+            'tracking_number': instance.tracking_number,
+            'status': instance.status,
+            'current_location': instance.current_location,
+            'latitude': float(instance.current_latitude) if instance.current_latitude else None,
+            'longitude': float(instance.current_longitude) if instance.current_longitude else None,
+            'estimated_delivery': instance.estimated_delivery.isoformat() if instance.estimated_delivery else None,
                     'last_updated': instance.updated_at.isoformat(),
                     'sender_id': instance.sender.id
                 }
-            }
+        }
         )
         
         # Send to user's notifications group
@@ -128,7 +155,7 @@ def broadcast_package_update(sender, instance, created, **kwargs):
         # Send email notification
         try:
             if hasattr(send_tracking_notification_email, 'delay'):
-                send_tracking_notification_email.delay(instance.id)
+        send_tracking_notification_email.delay(instance.id)
             else:
                 # Fallback to synchronous call
                 send_tracking_notification_email(instance.id)
@@ -157,7 +184,7 @@ def broadcast_package_update(sender, instance, created, **kwargs):
         # Send email notification for new package
         try:
             if hasattr(send_tracking_notification_email, 'delay'):
-                send_tracking_notification_email.delay(instance.id)
+        send_tracking_notification_email.delay(instance.id)
             else:
                 # Fallback to synchronous call
                 send_tracking_notification_email(instance.id)

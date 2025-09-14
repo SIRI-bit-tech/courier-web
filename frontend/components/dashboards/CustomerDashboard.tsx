@@ -13,14 +13,14 @@ import { packageAPI } from "@/lib/api"
 import { wsManager } from "@/lib/websocket"
 
 interface Package {
-    id: number
-    tracking_number: string
-    recipient_name: string
-    recipient_address: string
-    status: string
-    created_at: string
-    estimated_delivery: string
-    shipping_cost: string
+  id: number
+  tracking_number: string
+  recipient_name: string
+  recipient_address: string
+  status: string
+  created_at: string
+  estimated_delivery: string
+  shipping_cost: string
     current_location?: string
     latitude?: number
     longitude?: number
@@ -38,7 +38,7 @@ export function CustomerDashboard() {
     fetchPackages()
     
     const timer = setTimeout(() => {
-      setupWebSocketConnection()
+    setupWebSocketConnection()
     }, 1000)
 
     return () => {
@@ -148,6 +148,8 @@ export function CustomerDashboard() {
         return <CheckCircle className="h-4 w-4 text-green-500" />
       case "in_transit":
         return <Truck className="h-4 w-4 text-blue-500" />
+      case "on_hold":
+        return <Clock className="h-4 w-4 text-yellow-500" />
       case "pending":
         return <Clock className="h-4 w-4 text-yellow-500" />
       case "failed_delivery":
@@ -163,6 +165,8 @@ export function CustomerDashboard() {
         return "bg-green-100 text-green-800"
       case "in_transit":
         return "bg-blue-100 text-blue-800"
+      case "on_hold":
+        return "bg-yellow-100 text-yellow-800"
       case "pending":
         return "bg-yellow-100 text-yellow-800"
       case "failed_delivery":
