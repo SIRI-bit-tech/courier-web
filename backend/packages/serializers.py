@@ -63,7 +63,7 @@ class PackageCreateSerializer(serializers.ModelSerializer):
         if not value or not value.strip():
             raise serializers.ValidationError("Package type is required.")
         return value.strip()
-    
+
     def create(self, validated_data):
         """Create a new package with the authenticated user as sender"""
         # Get the authenticated user from request context

@@ -131,7 +131,7 @@ class AuthService {
   private isRefreshing = false
   private refreshPromise: Promise<boolean> | null = null
 
-  // ✅ PRODUCTION-READY: Clean login without console.logs
+  
   async login(credentials: LoginCredentials) {
     try {
       const response = await apiClient.post('/api/auth/token/', credentials)
@@ -311,6 +311,7 @@ class AuthService {
   // ✅ PRODUCTION-READY: Enhanced createPackage with better error handling
   async createPackage(packageData: CreatePackageData) {
     const token = this.getToken()
+    
     if (!token) {
       throw new Error("Not authenticated")
     }
@@ -322,27 +323,9 @@ class AuthService {
       
       return { success: true, package: response.data }
     } catch (error: any) {
-      // Enhanced error logging - Always show for debugging
-      console.error('❌ Package creation ERROR response:', {
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data,
-        message: error.message
-      })
-      
-      // Handle different error types
-      if (error.response?.status === 201) {
-        // This is actually a success! The package was created
-        console.log('🎉 Actually a success! Status 201 with data:', error.response.data)
-        return { success: true, package: error.response.data }
-      }
-      
-      // Handle validation errors properly
+      // Essential error logging for production debugging
       if (error.response?.status === 400) {
         const validationErrors = error.response.data
-        
-        // Debug: Log the raw validation errors to understand the format
-        console.log('Raw validation errors:', validationErrors)
         
         // Convert Django REST framework validation errors to readable format
         let errorMessage = "Please check the following fields:"
@@ -636,12 +619,11 @@ class AuthService {
 
 export const authService = new AuthService()
 
-// ✅ PRODUCTION-READY: Clean axios interceptor
+// Clean axios interceptor
 apiClient.interceptors.response.use(
   (response: AxiosResponse) => {
     // Log successful requests only in development
     if (isDevelopment && response.config.method?.toUpperCase() !== 'GET') {
-      console.log(`✅ ${response.config.method?.toUpperCase()} ${response.config.url}`)
     }
     return response
   },

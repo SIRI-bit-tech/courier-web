@@ -42,22 +42,22 @@ class Package(models.Model):
         db_index=True
     )
     
-    # Package details - Make required fields have defaults
-    sender_name = models.CharField(max_length=100, db_index=True, default='Unknown Sender')
-    sender_email = models.EmailField(default='no-email@example.com')
-    sender_phone = models.CharField(max_length=20, default='000-000-0000')
-    sender_address = models.TextField(default='No address provided')
-    sender_city = models.CharField(max_length=100, default='Unknown')
-    sender_state = models.CharField(max_length=100, default='Unknown')
-    sender_zip = models.CharField(max_length=10, default='00000')
+    # Package details - Allow blank values for form validation
+    sender_name = models.CharField(max_length=100, db_index=True, blank=True)
+    sender_email = models.EmailField(blank=True)
+    sender_phone = models.CharField(max_length=20, blank=True)
+    sender_address = models.TextField(blank=True)
+    sender_city = models.CharField(max_length=100, blank=True)
+    sender_state = models.CharField(max_length=100, blank=True)
+    sender_zip = models.CharField(max_length=10, blank=True)
     
-    recipient_name = models.CharField(max_length=100, db_index=True, default='Unknown Recipient')
-    recipient_email = models.EmailField(default='no-email@example.com')
-    recipient_phone = models.CharField(max_length=20, default='000-000-0000')
-    recipient_address = models.TextField(default='No address provided')
-    recipient_city = models.CharField(max_length=100, default='Unknown')
-    recipient_state = models.CharField(max_length=100, default='Unknown')
-    recipient_zip = models.CharField(max_length=10, default='00000')
+    recipient_name = models.CharField(max_length=100, db_index=True, blank=True)
+    recipient_email = models.EmailField(blank=True)
+    recipient_phone = models.CharField(max_length=20, blank=True)
+    recipient_address = models.TextField(blank=True)
+    recipient_city = models.CharField(max_length=100, blank=True)
+    recipient_state = models.CharField(max_length=100, blank=True)
+    recipient_zip = models.CharField(max_length=10, blank=True)
     
     # Package specifications
     weight = models.DecimalField(max_digits=10, decimal_places=2, db_index=True)
@@ -68,13 +68,13 @@ class Package(models.Model):
         db_index=True
     )
     
-    # Dimensions
-    length = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, default=0)
-    width = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, default=0)
-    height = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, default=0)
-    declared_value = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, default=0)
+    # Dimensions - Remove defaults
+    length = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    width = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    height = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    declared_value = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     
-    # Status and location
+    # Status and location - Keep defaults for these as they're auto-generated
     status = models.CharField(
         max_length=20, 
         choices=STATUS_CHOICES, 

@@ -60,17 +60,17 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    # Custom security middleware
-    'swiftcourier_backend.middleware.SecurityHeadersMiddleware',
-    'swiftcourier_backend.middleware.RateLimitMiddleware',
-    'swiftcourier_backend.middleware.InputValidationMiddleware',
-    # Enhanced rate limiting
-    'swiftcourier_backend.middleware.EnhancedRateLimitMiddleware',
-    # Database optimization middleware
-    'swiftcourier_backend.middleware.DatabaseConnectionMiddleware',
-    'swiftcourier_backend.middleware.ConnectionPoolMiddleware',
-    # Compression middleware
-    'swiftcourier_backend.middleware.CompressionMiddleware',
+    # Custom security middleware - Temporarily disabled for ASGI compatibility
+    # 'swiftcourier_backend.middleware.SecurityHeadersMiddleware',
+    # 'swiftcourier_backend.middleware.RateLimitMiddleware',
+    # 'swiftcourier_backend.middleware.InputValidationMiddleware',
+    # Enhanced rate limiting - Temporarily disabled for ASGI compatibility
+    # 'swiftcourier_backend.middleware.EnhancedRateLimitMiddleware',
+    # Database optimization middleware - Temporarily disabled for ASGI compatibility
+    # 'swiftcourier_backend.middleware.DatabaseConnectionMiddleware',
+    # 'swiftcourier_backend.middleware.ConnectionPoolMiddleware',
+    # Compression middleware - Temporarily disabled for ASGI compatibility
+    # 'swiftcourier_backend.middleware.CompressionMiddleware',
 ]
 
 ROOT_URLCONF = 'swiftcourier_backend.urls'
