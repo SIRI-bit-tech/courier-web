@@ -41,27 +41,55 @@ export function OpenStreetMap({ center, markers = [], zoom = 13, className = "" 
         shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
       })
 
-      // Initialize map
-      mapInstanceRef.current = L.map(mapRef.current).setView([center.lat, center.lng], zoom)
+      // Check if map already exists
+      if (mapInstanceRef.current) {
+        // Update existing map instead of creating new one
+        mapInstanceRef.current.setView([center.lat, center.lng], zoom)
+        
+        // Clear existing markers safely
+        markersRef.current.forEach((marker: any) => {
+          if (mapInstanceRef.current && mapInstanceRef.current.hasLayer(marker)) {
+            mapInstanceRef.current.removeLayer(marker)
+          }
+        })
+        markersRef.current = []
 
-      // Add OpenStreetMap tiles
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors',
-        maxZoom: 19,
-      }).addTo(mapInstanceRef.current)
+        // Add new markers
+        markers.forEach((markerData) => {
+          const marker = L.marker([markerData.position.lat, markerData.position.lng])
+            .addTo(mapInstanceRef.current)
+            .bindPopup(`<b>${markerData.title}</b><br>${markerData.info || ''}`)
 
-      // Clear existing markers
-      markersRef.current.forEach((marker: any) => mapInstanceRef.current.removeLayer(marker))
-      markersRef.current = []
+          markersRef.current.push(marker)
+        })
+      } else {
+        // Initialize new map
+        mapInstanceRef.current = L.map(mapRef.current).setView([center.lat, center.lng], zoom)
 
-      // Add markers
-      markers.forEach((markerData) => {
-        const marker = L.marker([markerData.position.lat, markerData.position.lng])
-          .addTo(mapInstanceRef.current)
-          .bindPopup(`<b>${markerData.title}</b><br>${markerData.info || ''}`)
+        // Add reliable map tiles (Stadia Maps)
+        L.tileLayer('https://tiles.stadiamaps.com/tiles/osm_bright/{z}/{x}/{y}{r}.png', {
+          attribution: '© <a href="https://stadiamaps.com/">Stadia Maps</a>, © <a href="https://openmaptiles.org/">OpenMapTiles</a>, © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+          maxZoom: 20,
+          minZoom: 0,
+        }).addTo(mapInstanceRef.current)
 
-        markersRef.current.push(marker)
-      })
+        // Clear existing markers
+        markersRef.current.forEach((marker: any) => {
+          if (mapInstanceRef.current && mapInstanceRef.current.hasLayer(marker)) {
+            mapInstanceRef.current.removeLayer(marker)
+          }
+        })
+        markersRef.current = []
+
+        // Add markers
+        markers.forEach((markerData) => {
+          const marker = L.marker([markerData.position.lat, markerData.position.lng])
+            .addTo(mapInstanceRef.current)
+            .bindPopup(`<b>${markerData.title}</b><br>${markerData.info || ''}`)
+
+          markersRef.current.push(marker)
+        })
+      }
     }
 
     initMap()
@@ -69,6 +97,7 @@ export function OpenStreetMap({ center, markers = [], zoom = 13, className = "" 
     return () => {
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove()
+        mapInstanceRef.current = null
       }
     }
   }, [center, markers, zoom])
