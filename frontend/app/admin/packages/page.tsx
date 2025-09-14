@@ -1,10 +1,10 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/frontend/components/ui/card"
-import { Badge } from "@/frontend/components/ui/badge"
-import { Input } from "@/frontend/components/ui/input"
-import { Button } from "@/frontend/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
 import { adminAPI } from "@/lib/admin-api"
 
 interface Package {
