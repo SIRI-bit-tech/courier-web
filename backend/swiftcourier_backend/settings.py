@@ -479,6 +479,10 @@ LOGGING = {
             'level': 'INFO',
             'propagate': False,
         },
+        'tracking.consumers': {
+            'handlers': ['console'],
+            'level': 'INFO',  # Change to 'DEBUG' for more verbose logs
+        },
     },
 }
 

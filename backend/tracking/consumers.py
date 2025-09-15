@@ -2,6 +2,7 @@
 import json
 import asyncio
 import os
+import logging
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from django.contrib.auth.models import AnonymousUser
@@ -13,6 +14,9 @@ from .models import TrackingEvent
 from packages.models import Package
 
 User = get_user_model()
+
+# Set up logger
+logger = logging.getLogger(__name__)
 
 class TrackingConsumer(AsyncWebsocketConsumer):
     async def connect(self):
@@ -404,9 +408,21 @@ class DriverConsumer(AsyncWebsocketConsumer):
             # Authenticate driver from token
             self.user = await self.get_user_from_token()
 
-            if isinstance(self.user, AnonymousUser) or self.user.user_type != 'driver':
+            # Debug logging (only in development)
+            if os.getenv('DJANGO_ENV') == 'development':
+                logger.debug(f"[WS] Driver connection attempt - User: {self.user}, Type: {type(self.user)}")
+            
+            if isinstance(self.user, AnonymousUser):
+                logger.warning("[WS] Driver connection rejected - Anonymous user")
                 await self.close(code=4001)  # Unauthorized
                 return
+            
+            if not hasattr(self.user, 'user_type') or self.user.user_type != 'driver':
+                logger.warning(f"[WS] Driver connection rejected - User type: {getattr(self.user, 'user_type', 'unknown')}")
+                await self.close(code=4001)  # Unauthorized
+                return
+
+            logger.info(f"[WS] Driver connection accepted - User: {self.user.email}")
 
             # Create driver-specific group
             self.room_group_name = f'driver_{self.user.id}'
@@ -426,7 +442,11 @@ class DriverConsumer(AsyncWebsocketConsumer):
             }))
 
         except Exception as e:
-            print(f"[WS] Driver connection error: {e}")
+            logger.error(f"[WS] Driver connection error: {e}")
+            # Only print traceback in development
+            if os.getenv('DJANGO_ENV') == 'development':
+                import traceback
+                logger.debug(traceback.format_exc())
             await self.close(code=1011)  # Internal error
 
     async def disconnect(self, close_code):
@@ -436,8 +456,9 @@ class DriverConsumer(AsyncWebsocketConsumer):
                     self.room_group_name,
                     self.channel_name
                 )
+                logger.info(f"[WS] Driver disconnected - User: {getattr(self.user, 'email', 'unknown')}")
         except Exception as e:
-            print(f"[WS] Driver disconnect error: {e}")
+            logger.error(f"[WS] Driver disconnect error: {e}")
 
     @database_sync_to_async
     def get_user_from_token(self):
@@ -467,50 +488,26 @@ class DriverConsumer(AsyncWebsocketConsumer):
             return AnonymousUser()
 
     async def receive(self, text_data):
-        """Handle incoming WebSocket messages"""
         try:
-            if isinstance(text_data, str):
-                data = json.loads(text_data)
+            text_data_json = json.loads(text_data)
+            message_type = text_data_json.get('type', 'unknown')
+            
+            # Log message types in development only
+            if os.getenv('DJANGO_ENV') == 'development':
+                logger.debug(f"[WS] Driver message received - Type: {message_type}")
+
+            # Handle location updates
+            if message_type == 'location_update':
+                await self.handle_location_update(text_data_json)
+            elif message_type == 'status_update':
+                await self.handle_status_update(text_data_json)
             else:
-                data = text_data
-
-            if not isinstance(data, dict):
-                await self.send(text_data=json.dumps({
-                    'type': 'error',
-                    'message': 'Invalid message format'
-                }))
-                return
-
-            message_type = data.get('type')
-
-            if message_type == 'ping':
-                await self.send(text_data=json.dumps({
-                    'type': 'pong',
-                    'timestamp': str(asyncio.get_event_loop().time())
-                }))
-            elif message_type == 'update_location':
-                # Handle driver location updates
-                await self.handle_location_update(data)
-            elif message_type == 'update_status':
-                # Handle driver status updates
-                await self.handle_status_update(data)
-            else:
-                await self.send(text_data=json.dumps({
-                    'type': 'error',
-                    'message': 'Unknown message type'
-                }))
+                logger.warning(f"[WS] Unknown message type from driver: {message_type}")
 
         except json.JSONDecodeError:
-            await self.send(text_data=json.dumps({
-                'type': 'error',
-                'message': 'Invalid JSON format'
-            }))
+            logger.error("[WS] Invalid JSON received from driver")
         except Exception as e:
-            print(f"[WS] Driver receive error: {e}")
-            await self.send(text_data=json.dumps({
-                'type': 'error',
-                'message': 'Internal server error'
-            }))
+            logger.error(f"[WS] Driver message processing error: {e}")
 
     async def handle_location_update(self, data):
         """Handle driver location updates"""
