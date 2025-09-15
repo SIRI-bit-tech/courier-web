@@ -157,6 +157,22 @@ export class WebSocketManager {
   }
 }
 
-// Singleton pattern for consistent WebSocket management
-const wsManager = new WebSocketManager('/ws/notifications/')
-export { wsManager }
+// Create separate managers for different user types to prevent conflicts
+const customerWSManager = new WebSocketManager('/ws/notifications/')
+const driverWSManager = new WebSocketManager('/ws/driver-updates/')
+const adminWSManager = new WebSocketManager('/ws/admin/')
+
+// Export the appropriate manager based on user type
+export const getWebSocketManager = (userType?: string) => {
+  switch (userType) {
+    case 'driver':
+      return driverWSManager
+    case 'admin':
+      return adminWSManager
+    default:
+      return customerWSManager
+  }
+}
+
+// Keep backward compatibility - default to customer manager
+export const wsManager = customerWSManager

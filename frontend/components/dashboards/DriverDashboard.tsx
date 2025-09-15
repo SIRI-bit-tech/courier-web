@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { DashboardLayout } from "@/components/layouts/DashboardLayout"
 import { routeAPI } from "@/lib/api"
 import { wsManager } from "@/lib/websocket"
+import { useAuth } from "@/contexts/AuthContext"
 
 interface RouteStop {
   id: number
@@ -32,16 +33,23 @@ interface DeliveryRoute {
 
 export function DriverDashboard() {
   const [routes, setRoutes] = useState<DeliveryRoute[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(true) // Component loading state
+  const { user, loading: authLoading } = useAuth() 
 
   useEffect(() => {
-    fetchRoutes()
-    setupWebSocketConnection()
+    if (!authLoading && user?.user_type === 'driver') {
+      fetchRoutes()
+      setupWebSocketConnection()
+    } else if (!authLoading) {
+      setLoading(false)
+    }
 
     return () => {
-      wsManager.disconnect()
+      if (user?.user_type === 'driver') {
+        wsManager.disconnect()
+      }
     }
-  }, [])
+  }, [user, authLoading])
 
   const fetchRoutes = async () => {
     try {
@@ -55,20 +63,45 @@ export function DriverDashboard() {
   }
 
   const setupWebSocketConnection = () => {
-    wsManager.connect("/ws/driver-updates/")
+    if (!user || user.user_type !== 'driver') {
+      console.log('[WS] Skipping driver WebSocket - user is not a driver')
+      return
+    }
 
     wsManager.on("route_update", (data: any) => {
-      setRoutes((prev) => prev.map((route) => (route.id === data.route_id ? { ...route, ...data } : route)))
+      setRoutes((prev) => {
+        if (!Array.isArray(prev)) return []
+        return prev.map((route) => (route.id === data.route_id ? { ...route, ...data } : route))
+      })
     })
 
     wsManager.on("stop_update", (data: any) => {
-      setRoutes((prev) =>
-        prev.map((route) => ({
+      setRoutes((prev) => {
+        if (!Array.isArray(prev)) return []
+        return prev.map((route) => ({
           ...route,
-          stops: route.stops.map((stop) => (stop.id === data.stop_id ? { ...stop, status: data.status } : stop)),
-        })),
-      )
+          stops: Array.isArray(route.stops) 
+            ? route.stops.map((stop) => (stop.id === data.stop_id ? { ...stop, status: data.status } : stop))
+            : []
+        }))
+      })
     })
+
+    wsManager.on("new_route", (data: any) => {
+      setRoutes((prev) => {
+        if (!Array.isArray(prev)) return [data]
+        return [data, ...prev]
+      })
+    })
+
+    wsManager.on("route_removed", (data: any) => {
+      setRoutes((prev) => {
+        if (!Array.isArray(prev)) return []
+        return prev.filter((route) => route.id !== data.route_id)
+      })
+    })
+
+    wsManager.connect("/ws/driver-updates/")
   }
 
   const updateStopStatus = async (routeId: number, stopId: number, status: string) => {

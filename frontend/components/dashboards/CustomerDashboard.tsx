@@ -92,6 +92,9 @@ export function CustomerDashboard() {
   }
 
   const setupWebSocketConnection = () => {
+    // Explicitly connect to customer notifications endpoint
+    wsManager.connect("/ws/notifications/")
+    
     wsManager.on('connected', () => {
       setConnectionStatus('connected')
     })
@@ -138,8 +141,6 @@ export function CustomerDashboard() {
         return updatedPackages
       })
     })
-
-    wsManager.connect("/ws/notifications/")
   }
 
   const getStatusIcon = (status: string) => {
