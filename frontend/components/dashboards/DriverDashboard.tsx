@@ -129,7 +129,35 @@ export function DriverDashboard() {
     }
   }
 
-  const todayRoutes = routes.filter((route) => new Date(route.route_date).toDateString() === new Date().toDateString())
+  // Safe array operations with error handling
+  const todayRoutes = Array.isArray(routes) 
+    ? routes.filter((route) => {
+        try {
+          return new Date(route.route_date).toDateString() === new Date().toDateString()
+        } catch (error) {
+          console.error("Error filtering route date:", error)
+          return false
+        }
+      })
+    : []
+
+  const totalPackages = Array.isArray(todayRoutes) 
+    ? todayRoutes.reduce((sum, route) => sum + (route.total_packages || 0), 0)
+    : 0
+
+  const completedStops = Array.isArray(todayRoutes)
+    ? todayRoutes.reduce((sum, route) => {
+        if (!Array.isArray(route.stops)) return sum
+        return sum + route.stops.filter(stop => stop.status === "completed").length
+      }, 0)
+    : 0
+
+  const pendingStops = Array.isArray(todayRoutes)
+    ? todayRoutes.reduce((sum, route) => {
+        if (!Array.isArray(route.stops)) return sum
+        return sum + route.stops.filter(stop => stop.status === "pending").length
+      }, 0)
+    : 0
 
   return (
     <DashboardLayout>
@@ -159,7 +187,7 @@ export function DriverDashboard() {
                 <div>
                   <p className="text-sm text-gray-600">Total Packages</p>
                   <p className="text-2xl font-bold">
-                    {todayRoutes.reduce((sum, route) => sum + route.total_packages, 0)}
+                    {totalPackages}
                   </p>
                 </div>
                 <Package className="h-8 w-8 text-blue-500" />
@@ -172,10 +200,7 @@ export function DriverDashboard() {
                 <div>
                   <p className="text-sm text-gray-600">Completed</p>
                   <p className="text-2xl font-bold">
-                    {todayRoutes.reduce(
-                      (sum, route) => sum + route.stops.filter((stop) => stop.status === "completed").length,
-                      0,
-                    )}
+                    {completedStops}
                   </p>
                 </div>
                 <CheckCircle className="h-8 w-8 text-green-500" />
@@ -188,10 +213,7 @@ export function DriverDashboard() {
                 <div>
                   <p className="text-sm text-gray-600">Pending</p>
                   <p className="text-2xl font-bold">
-                    {todayRoutes.reduce(
-                      (sum, route) => sum + route.stops.filter((stop) => stop.status === "pending").length,
-                      0,
-                    )}
+                    {pendingStops}
                   </p>
                 </div>
                 <Clock className="h-8 w-8 text-orange-500" />
