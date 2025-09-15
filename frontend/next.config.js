@@ -1,16 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Cloudflare Pages static export
-  output: "export",
-  trailingSlash: true,
   
-  //Basic image configuration
   images: {
     domains: ["localhost", "127.0.0.1"],
-    unoptimized: true,
   },
 
-  //Simple headers for basic functionality
+  //Security headers work on Vercel
   async headers() {
     return [
       {
