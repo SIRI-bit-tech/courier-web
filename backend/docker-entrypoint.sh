@@ -36,18 +36,25 @@ parse_database_url() {
         if [ -z "$DB_HOST" ]; then
             echo -e "${YELLOW}⚠️  Regex parsing failed, using manual extraction...${NC}"
             
-            # Extract everything after @ and before :
-            TEMP=$(echo $DATABASE_URL | sed 's|.*://.*@||' | sed 's|:.*||')
+            # Extract hostname only (stop at first / or ?)
+            TEMP=$(echo $DATABASE_URL | sed 's|.*://.*@||' | sed 's|[:/?].*||')
             if [ -n "$TEMP" ]; then
                 DB_HOST=$TEMP
                 echo -e "${GREEN}✅ Manual host extraction: ${DB_HOST}${NC}"
             fi
         fi
         
-        # Set default port if still empty
+        # Extract port more accurately
         if [ -z "$DB_PORT" ]; then
-            DB_PORT="5432"
-            echo -e "${YELLOW}⚠️  Using default port: ${DB_PORT}${NC}"
+            # Try to find port in the URL
+            PORT_TEMP=$(echo $DATABASE_URL | sed -n 's|.*://.*@\([^:]*\):\([0-9]\+\)/.*|\2|p')
+            if [ -n "$PORT_TEMP" ]; then
+                DB_PORT=$PORT_TEMP
+                echo -e "${GREEN}✅ Found port in URL: ${DB_PORT}${NC}"
+            else
+                DB_PORT="5432"
+                echo -e "${YELLOW}⚠️  Using default port: ${DB_PORT}${NC}"
+            fi
         fi
         
         # Validate we have a host
