@@ -394,3 +394,178 @@ class NotificationsConsumer(AsyncWebsocketConsumer):
         """Mark notification as read (placeholder for future implementation)"""
         # This is a placeholder - implement when you add a notifications model
         pass
+
+
+class DriverConsumer(AsyncWebsocketConsumer):
+    """WebSocket consumer for driver real-time updates"""
+
+    async def connect(self):
+        try:
+            # Authenticate driver from token
+            self.user = await self.get_user_from_token()
+
+            if isinstance(self.user, AnonymousUser) or self.user.user_type != 'driver':
+                await self.close(code=4001)  # Unauthorized
+                return
+
+            # Create driver-specific group
+            self.room_group_name = f'driver_{self.user.id}'
+
+            await self.channel_layer.group_add(
+                self.room_group_name,
+                self.channel_name
+            )
+
+            await self.accept()
+
+            await self.send(text_data=json.dumps({
+                'type': 'connection_established',
+                'user_id': self.user.id,
+                'user_email': self.user.email,
+                'user_type': 'driver'
+            }))
+
+        except Exception as e:
+            print(f"[WS] Driver connection error: {e}")
+            await self.close(code=1011)  # Internal error
+
+    async def disconnect(self, close_code):
+        try:
+            if hasattr(self, 'room_group_name'):
+                await self.channel_layer.group_discard(
+                    self.room_group_name,
+                    self.channel_name
+                )
+        except Exception as e:
+            print(f"[WS] Driver disconnect error: {e}")
+
+    @database_sync_to_async
+    def get_user_from_token(self):
+        try:
+            query_string = self.scope.get('query_string', b'').decode()
+            token = None
+
+            if query_string:
+                for param in query_string.split('&'):
+                    if param.startswith('token='):
+                        token = param.split('=', 1)[1]
+                        break
+
+            if token:
+                # URL decode the token
+                from urllib.parse import unquote
+                token = unquote(token)
+
+                access_token = AccessToken(token)
+                user_id = access_token['user_id']
+                user = User.objects.get(id=user_id)
+                return user
+
+            return AnonymousUser()
+        except Exception as e:
+            print(f"[WS] Driver token validation error: {e}")
+            return AnonymousUser()
+
+    async def receive(self, text_data):
+        """Handle incoming WebSocket messages"""
+        try:
+            if isinstance(text_data, str):
+                data = json.loads(text_data)
+            else:
+                data = text_data
+
+            if not isinstance(data, dict):
+                await self.send(text_data=json.dumps({
+                    'type': 'error',
+                    'message': 'Invalid message format'
+                }))
+                return
+
+            message_type = data.get('type')
+
+            if message_type == 'ping':
+                await self.send(text_data=json.dumps({
+                    'type': 'pong',
+                    'timestamp': str(asyncio.get_event_loop().time())
+                }))
+            elif message_type == 'update_location':
+                # Handle driver location updates
+                await self.handle_location_update(data)
+            elif message_type == 'update_status':
+                # Handle driver status updates
+                await self.handle_status_update(data)
+            else:
+                await self.send(text_data=json.dumps({
+                    'type': 'error',
+                    'message': 'Unknown message type'
+                }))
+
+        except json.JSONDecodeError:
+            await self.send(text_data=json.dumps({
+                'type': 'error',
+                'message': 'Invalid JSON format'
+            }))
+        except Exception as e:
+            print(f"[WS] Driver receive error: {e}")
+            await self.send(text_data=json.dumps({
+                'type': 'error',
+                'message': 'Internal server error'
+            }))
+
+    async def handle_location_update(self, data):
+        """Handle driver location updates"""
+        try:
+            latitude = data.get('latitude')
+            longitude = data.get('longitude')
+
+            if latitude is not None and longitude is not None:
+                # Update driver's location in database/cache
+                # You can implement this based on your driver model
+                await self.send(text_data=json.dumps({
+                    'type': 'location_updated',
+                    'latitude': latitude,
+                    'longitude': longitude
+                }))
+        except Exception as e:
+            print(f"[WS] Location update error: {e}")
+
+    async def handle_status_update(self, data):
+        """Handle driver status updates"""
+        try:
+            status = data.get('status')
+            if status:
+                await self.send(text_data=json.dumps({
+                    'type': 'status_updated',
+                    'status': status
+                }))
+        except Exception as e:
+            print(f"[WS] Status update error: {e}")
+
+    # Event handlers for incoming messages from Django
+    async def route_update(self, event):
+        """Handle route update events"""
+        await self.send(text_data=json.dumps({
+            'type': 'route_update',
+            'data': event['data']
+        }))
+
+    async def stop_update(self, event):
+        """Handle delivery stop update events"""
+        await self.send(text_data=json.dumps({
+            'type': 'stop_update',
+            'data': event['data']
+        }))
+
+    async def new_route(self, event):
+        """Handle new route assignment"""
+        await self.send(text_data=json.dumps({
+            'type': 'new_route',
+            'data': event['data']
+        }))
+
+    async def route_removed(self, event):
+        """Handle route removal"""
+        await self.send(text_data=json.dumps({
+            'type': 'route_removed',
+            'data': event['data']
+        }))
