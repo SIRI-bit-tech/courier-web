@@ -165,6 +165,20 @@ elif [ "$1" = "gunicorn" ]; then
         --log-level info \
         --access-logfile - \
         --error-logfile -
+elif [ "$1" = "both" ]; then
+    echo -e "${GREEN}🚀 Starting Django + Celery together...${NC}"
+    echo -e "${YELLOW}⚡ Starting Celery worker in background...${NC}"
+    
+    # Start Celery in background
+    celery -A swiftcourier_backend worker --loglevel=info --concurrency=2 &
+    CELERY_PID=$!
+    
+    # Trap to clean up Celery when Django exits
+    trap "echo 'Stopping Celery...'; kill $CELERY_PID 2>/dev/null; exit" INT TERM
+    
+    echo -e "${GREEN}🌐 Starting Daphne ASGI server...${NC}"
+    # Start Django in foreground
+    exec daphne -b 0.0.0.0 -p $PORT swiftcourier_backend.asgi:application
 elif [ "$1" = "celery" ]; then
     echo -e "${GREEN}🥕 Starting Celery worker...${NC}"
     exec celery -A swiftcourier_backend worker --loglevel=info --concurrency=2
